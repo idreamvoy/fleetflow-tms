@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "tms",
+      "runtimeExecutable": "powershell.exe",
+      "runtimeArgs": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-Command",
+        "$env:Path = 'C:\\Program Files\\nodejs;' + $env:Path; & 'C:\\Program Files\\nodejs\\npm.cmd' run dev"
+      ],
+      "port": 3000
+    }
+  ]
+}
