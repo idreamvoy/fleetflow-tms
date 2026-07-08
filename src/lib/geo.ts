@@ -9,8 +9,10 @@ export interface LatLng {
   lng: number;
 }
 
-// คลังสินค้าหลัก (จุดเริ่มต้นทุกเที่ยว) — กรุงเทพฯ
-export const WAREHOUSE: LatLng = { lat: 13.746, lng: 100.534 };
+// คลังสินค้าหลัก (จุดเริ่มต้นทุกเที่ยว)
+// คลังสินค้า เนเจอร์ทัช · ซ.กิ่งแก้ว 25/1 ต.ราชาเทวะ อ.บางพลี สมุทรปราการ
+export const WAREHOUSE: LatLng = { lat: 13.6799388, lng: 100.7093006 };
+export const WAREHOUSE_NAME = 'คลังสินค้า เนเจอร์ทัช';
 
 // ตารางพิกัดโดยประมาณจากคำสำคัญในที่อยู่
 const PLACES: Array<{ kw: string; lat: number; lng: number }> = [
@@ -27,6 +29,12 @@ const PLACES: Array<{ kw: string; lat: number; lng: number }> = [
   { kw: 'พระราม 1', lat: 13.746, lng: 100.53 },
   { kw: 'เจริญกรุง', lat: 13.722, lng: 100.514 },
   { kw: 'ปริมณฑล', lat: 13.85, lng: 100.6 },
+  { kw: 'กิ่งแก้ว', lat: 13.68, lng: 100.709 },
+  { kw: 'ราชาเทวะ', lat: 13.68, lng: 100.709 },
+  { kw: 'บางพลี', lat: 13.6, lng: 100.71 },
+  { kw: 'สุวรรณภูมิ', lat: 13.69, lng: 100.75 },
+  { kw: 'สมุทรปราการ', lat: 13.599, lng: 100.597 },
+  { kw: 'บางนา', lat: 13.668, lng: 100.604 },
   { kw: 'กทม', lat: 13.746, lng: 100.534 },
   // ต่างจังหวัด
   { kw: 'พิษณุโลก', lat: 16.821, lng: 100.266 },

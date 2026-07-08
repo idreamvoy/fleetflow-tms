@@ -5,6 +5,8 @@ import { IconRoute, IconPin, IconTruck, IconBox } from '../components/icons';
 import OrderDetail from '../components/OrderDetail';
 import { geocode, optimizeOrder, routePlan, fmtClock, fmtDuration, WAREHOUSE, haversine } from '../lib/geo';
 
+const WAREHOUSE_ORIGIN = `${WAREHOUSE.lat},${WAREHOUSE.lng}`; // คลังเนเจอร์ทัช
+
 const WAITING_STATUSES: OrderStatus[] = ['ready', 'cod_waiting', 'cod_transferred', 'oem'];
 
 export default function Planning({
@@ -87,7 +89,7 @@ export default function Planning({
   const openMaps = (t: Trip) => {
     const st = stopsOf(t);
     if (!st.length) return;
-    const parts = ['คลังสินค้า FleetFlow กรุงเทพ', ...st.map((o) => `${o.delivery_location} ประเทศไทย`)];
+    const parts = [WAREHOUSE_ORIGIN, ...st.map((o) => `${o.delivery_location} ประเทศไทย`)];
     window.open('https://www.google.com/maps/dir/' + parts.map((p) => encodeURIComponent(p)).join('/'), '_blank');
   };
   const drop = async (t: Trip, dropIdx: number) => {
