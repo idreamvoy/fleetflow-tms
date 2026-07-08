@@ -8,8 +8,9 @@ import Tracking from './pages/Tracking';
 import DriverApp from './pages/DriverApp';
 import Reports from './pages/Reports';
 import OrderModal from './components/OrderModal';
+import PodModal from './components/PodModal';
 import { db, IS_SUPABASE_CONFIGURED } from './lib/supabase';
-import type { Order, Zone, Driver, Trip, StatusMovement, NewOrder, OrderStatus } from './lib/types';
+import type { Order, Zone, Driver, Trip, StatusMovement, StatusEvent, NewOrder, OrderStatus, PodInput } from './lib/types';
 
 const PAGE_META: Record<PageKey, { title: string; subtitle: string }> = {
   dashboard: { title: 'Dashboard', subtitle: 'ภาพรวมระบบ · ศูนย์ควบคุมการจัดส่ง' },
@@ -27,23 +28,26 @@ export default function App() {
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [trips, setTrips] = useState<Trip[]>([]);
   const [movements, setMovements] = useState<StatusMovement[]>([]);
+  const [history, setHistory] = useState<StatusEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editingOrder, setEditingOrder] = useState<Order | null>(null);
+  const [podTarget, setPodTarget] = useState<{ order: Order; trip: Trip } | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [navOpen, setNavOpen] = useState(false);
 
   async function loadAll() {
     setLoading(true);
-    const [o, z, d, t, m] = await Promise.all([
-      db.getOrders(), db.getZones(), db.getDrivers(), db.getTrips(), db.getMovements(),
+    const [o, z, d, t, m, h] = await Promise.all([
+      db.getOrders(), db.getZones(), db.getDrivers(), db.getTrips(), db.getMovements(), db.getHistory(),
     ]);
     setOrders(o);
     setZones(z);
     setDrivers(d);
     setTrips(t);
     setMovements(m);
+    setHistory(h);
     setLoading(false);
   }
 
@@ -116,10 +120,14 @@ export default function App() {
     flash(`จัดลำดับจุดส่ง TR-${String(tripId).padStart(2, '0')} แล้ว ✓`);
   }
 
-  async function handlePod(order: Order, status: OrderStatus, note: string, driverName: string) {
-    await db.recordStatus(order, status, note, driverName);
+  function openPod(order: Order, trip: Trip) {
+    setPodTarget({ order, trip });
+  }
+  async function handleRecordDelivery(input: PodInput) {
+    await db.recordDelivery(input);
     await loadAll();
-    flash(status === 'delivered' ? 'บันทึกส่งสำเร็จ ✓' : 'บันทึกส่งไม่สำเร็จ');
+    const label = input.overall_status === 'delivered' ? 'ส่งสำเร็จ' : input.overall_status === 'partial' ? 'ส่งบางส่วน' : 'ค้างส่ง';
+    flash(`บันทึกการส่ง ${input.order.order_no} · ${label} ✓`);
   }
 
   const onlineDrivers = drivers.filter((d) => d.is_online).length;
@@ -166,14 +174,24 @@ export default function App() {
           ) : page === 'tracking' ? (
             <Tracking trips={trips} orders={orders} />
           ) : page === 'driver' ? (
-            <DriverApp drivers={drivers} trips={trips} orders={orders} onPod={handlePod} />
+            <DriverApp drivers={drivers} trips={trips} orders={orders} onOpenPod={openPod} />
           ) : (
-            <Reports orders={orders} movements={movements} />
+            <Reports orders={orders} movements={movements} drivers={drivers} trips={trips} history={history} />
           )}
         </div>
       </div>
 
       {showModal && <OrderModal zones={zones} order={editingOrder} onClose={closeModal} onSave={handleSaveOrder} />}
+
+      {podTarget && (
+        <PodModal
+          order={podTarget.order}
+          driverId={podTarget.trip.driver_id}
+          driverName={podTarget.trip.driver_name ?? drivers.find((d) => d.id === podTarget.trip.driver_id)?.name ?? ''}
+          onClose={() => setPodTarget(null)}
+          onSave={handleRecordDelivery}
+        />
+      )}
 
       <div style={{ position: 'fixed', bottom: 20, right: 20, zIndex: 50 }}>
         <span className={`conn ${IS_SUPABASE_CONFIGURED ? 'live' : 'demo'}`}>

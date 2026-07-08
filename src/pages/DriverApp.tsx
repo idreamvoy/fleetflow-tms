@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { Order, Driver, Trip, OrderStatus } from '../lib/types';
+import type { Order, Driver, Trip } from '../lib/types';
 import { StatusBadge } from '../components/badges';
 import { IconTruck, IconPin, IconCheck } from '../components/icons';
 
@@ -7,12 +7,12 @@ export default function DriverApp({
   drivers,
   trips,
   orders,
-  onPod,
+  onOpenPod,
 }: {
   drivers: Driver[];
   trips: Trip[];
   orders: Order[];
-  onPod: (order: Order, status: OrderStatus, note: string, driverName: string) => Promise<void>;
+  onOpenPod: (order: Order, trip: Trip) => void;
 }) {
   const [tripId, setTripId] = useState<number>(trips[0]?.id ?? 0);
   const trip = trips.find((t) => t.id === tripId) ?? trips[0];
@@ -89,7 +89,7 @@ export default function DriverApp({
 
                 <div className="phone-stops">
                   {stops.map((o, i) => {
-                    const finished = o.status === 'delivered' || o.status === 'failed';
+                    const finished = o.status === 'delivered' || o.status === 'partial' || o.status === 'failed';
                     return (
                       <div key={o.id} className={`stop${finished ? ' done' : ''}`}>
                         <div className="stop-num">{i + 1}</div>
@@ -105,8 +105,8 @@ export default function DriverApp({
                               <button className="stop-btn nav">
                                 <IconPin width={14} height={14} /> นำทาง
                               </button>
-                              <button className="stop-btn confirm" onClick={() => onPod(o, 'delivered', '', driver?.name ?? '')}>
-                                <IconCheck width={14} height={14} /> ยืนยันส่ง
+                              <button className="stop-btn confirm" onClick={() => onOpenPod(o, trip)}>
+                                <IconCheck width={14} height={14} /> บันทึกส่ง
                               </button>
                             </div>
                           )}

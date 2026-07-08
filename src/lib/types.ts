@@ -8,10 +8,20 @@ export type OrderStatus =
   | 'ready' // พร้อมส่ง
   | 'waiting_ship' // รอส่ง
   | 'delivered' // จัดส่งสำเร็จ
+  | 'partial' // ส่งบางส่วน
   | 'failed' // ค้างส่ง
   | 'cod_waiting' // รอโอน
   | 'cod_transferred' // โอนแล้ว
   | 'oem'; // OEM // Made to order
+
+// สถานะการส่งรายรายการสินค้า (partial delivery)
+export type ItemDeliveryStatus = 'pending' | 'delivered' | 'partial' | 'returned';
+export const ITEM_STATUS_LABEL: Record<ItemDeliveryStatus, string> = {
+  pending: 'ยังไม่ส่ง',
+  delivered: 'ส่งครบ',
+  partial: 'ส่งบางส่วน',
+  returned: 'ตีกลับ',
+};
 
 export type CustomerType = 'hotel' | 'hospital'; // โรงแรม / โรงพยาบาล
 export type ShippingMethod = 'company' | 'shipping'; // ขนส่งบริษัท / ขนส่ง
@@ -46,6 +56,8 @@ export interface OrderItem {
   pieces_per_box: number; // ชิ้น/กล่อง
   boxes: number; // กล่อง (คำนวณ)
   note: string; // หมายเหตุ
+  delivered_qty?: number | null; // ส่งได้จริง (partial)
+  item_status?: ItemDeliveryStatus | null; // สถานะการส่งรายรายการ
 }
 
 // ใบสั่งขาย (sales order)
@@ -131,7 +143,43 @@ export interface StatusEvent {
   status: OrderStatus;
   note: string | null;
   by_driver: string | null;
+  driver_id?: number | null;
+  photo_url?: string | null;
+  signature_url?: string | null;
+  cod_collected?: number | null;
   created_at: string;
+}
+
+// ---------- POD (Proof of Delivery) ----------
+export interface PodItemInput {
+  item_id: number;
+  delivered_qty: number;
+  item_status: ItemDeliveryStatus;
+}
+export interface PodInput {
+  order: Order;
+  driver_id: number | null;
+  driver_name: string;
+  overall_status: OrderStatus; // delivered / partial / failed
+  photo_url: string | null; // รูปหน้างาน (JPEG dataURL, ย่อแล้ว)
+  signature_url: string | null; // ลายเซ็น (PNG dataURL)
+  cod_collected: number; // COD ที่เก็บได้จริง
+  note: string;
+  items: PodItemInput[];
+}
+
+// ---------- Driver performance (KPI) ----------
+export interface DriverPerformance {
+  driver_id: number;
+  name: string;
+  vehicle: string | null;
+  trips: number; // จำนวนเที่ยว
+  deliveries: number; // จุดที่รับผิดชอบ
+  delivered: number; // ส่งสำเร็จ (รวม partial)
+  failed: number; // ค้างส่ง
+  onTimeRate: number; // % สำเร็จ
+  podRate: number; // % ที่มีหลักฐาน POD
+  codCollected: number; // COD เก็บได้รวม
 }
 
 export interface ReportSummary {

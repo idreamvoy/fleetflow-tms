@@ -8,6 +8,8 @@ import type {
   NewOrder,
   Zone,
   Driver,
+  Trip as TripT,
+  StatusEvent as StatusEventT,
   DashboardStats,
   StatusBreakdown,
   ZoneSummary,
@@ -18,6 +20,8 @@ import type {
   ReportSummary,
   OrderStatus,
   Collection,
+  PodInput,
+  DriverPerformance,
 } from './types';
 
 const URL = import.meta.env.VITE_SUPABASE_URL as string | undefined;
@@ -135,8 +139,35 @@ function seedTrips(): Trip[] {
   ];
 }
 let demoTrips: Trip[] = seedTrips();
-let demoHistory: StatusEvent[] = [];
 let historyId = 1;
+
+// เดโม: จำลองการส่งสำเร็จ/บางส่วน + หลักฐาน POD (ให้หน้ารายงานมีข้อมูล)
+function seedPodDemo(): StatusEvent[] {
+  const now = Date.now();
+  const recs: Array<[number, OrderStatus, number, number, number]> = [
+    // [orderId, status, driverId, minsAgo, codCollected]
+    [1, 'delivered', 1, 40, 0],
+    [2, 'delivered', 1, 95, 0],
+    [3, 'partial', 1, 130, 4200],
+    [13, 'delivered', 2, 60, 0],
+    [14, 'failed', 2, 150, 0],
+    [4, 'delivered', 3, 55, 3800],
+    [5, 'delivered', 3, 120, 0],
+  ];
+  const byId = new Map(demoOrders.map((o) => [o.id, o]));
+  return recs.map(([oid, status, did, mins, cod], i) => {
+    const o = byId.get(oid);
+    if (o) o.status = status;
+    return {
+      id: 1000 + i, order_id: oid, order_no: o?.order_no ?? `#${oid}`, status,
+      note: status === 'partial' ? 'ส่งได้บางส่วน · ที่เหลือตีกลับ' : status === 'failed' ? 'ลูกค้าไม่รับสาย' : 'ส่งครบ',
+      driver_id: did, by_driver: DEMO_DRIVERS.find((d) => d.id === did)?.name ?? null,
+      photo_url: status !== 'failed' ? 'demo' : null, signature_url: status === 'delivered' ? 'demo' : null,
+      cod_collected: cod, created_at: new Date(now - mins * 60000).toISOString(),
+    };
+  });
+}
+let demoHistory: StatusEvent[] = seedPodDemo();
 
 // บันทึกความเคลื่อนไหวสถานะตัวอย่าง (หน้ารายงาน)
 const demoMovements: StatusMovement[] = [
@@ -451,9 +482,59 @@ export const db = {
   async getHistory(): Promise<StatusEvent[]> {
     if (!supabase) return [...demoHistory];
     const { data, error } = await supabase
-      .from('status_history').select('*, orders(order_no)').order('created_at', { ascending: false }).limit(50);
+      .from('status_history').select('*, orders(order_no), drivers(name)').order('created_at', { ascending: false }).limit(100);
     if (error) { console.error('getHistory', error); return [...demoHistory]; }
-    return (data as any[]).map((h) => ({ ...h, order_no: h.orders?.order_no ?? `#${h.order_id}` })) as StatusEvent[];
+    return (data as any[]).map((h) => ({
+      ...h,
+      order_no: h.orders?.order_no ?? `#${h.order_id}`,
+      driver_id: h.by_driver ?? null,
+      by_driver: h.drivers?.name ?? null,
+    })) as StatusEvent[];
+  },
+
+  // ---------- POD: บันทึกการส่ง (proof of delivery + partial) ----------
+  async recordDelivery(input: PodInput): Promise<void> {
+    const { order, overall_status, driver_id, driver_name, photo_url, signature_url, cod_collected, note, items } = input;
+    if (!supabase) {
+      demoOrders = demoOrders.map((o) =>
+        o.id === order.id
+          ? {
+              ...o,
+              status: overall_status,
+              items: o.items.map((it) => {
+                const pod = items.find((p) => p.item_id === it.id);
+                return pod ? { ...it, delivered_qty: pod.delivered_qty, item_status: pod.item_status } : it;
+              }),
+            }
+          : o
+      );
+      demoHistory = [
+        {
+          id: historyId++, order_id: order.id, order_no: order.order_no, status: overall_status,
+          note: note || null, driver_id, by_driver: driver_name || null,
+          photo_url: photo_url ?? null, signature_url: signature_url ?? null, cod_collected,
+          created_at: new Date().toISOString(),
+        },
+        ...demoHistory,
+      ];
+      return;
+    }
+    // orders: สถานะ + เวลา/ผู้ส่ง
+    const { error: e1 } = await supabase
+      .from('orders')
+      .update({ status: overall_status, delivered_at: new Date().toISOString(), delivered_by: driver_id })
+      .eq('id', order.id);
+    if (e1) throw e1;
+    // order_items: ส่งได้จริง + สถานะรายรายการ
+    await Promise.all(
+      items.map((p) => supabase!.from('order_items').update({ delivered_qty: p.delivered_qty, item_status: p.item_status }).eq('id', p.item_id))
+    );
+    // status_history: หลักฐาน POD
+    const { error: e3 } = await supabase.from('status_history').insert({
+      order_id: order.id, status: overall_status, note: note || null, by_driver: driver_id,
+      photo_url, signature_url, cod_collected,
+    });
+    if (e3) console.error('recordDelivery history', e3);
   },
 };
 
@@ -477,6 +558,7 @@ export function computeStatusBreakdown(orders: Order[]): StatusBreakdown[] {
     { key: 'ready', label: 'พร้อมส่ง', color: '#06b6d4' },
     { key: 'waiting_ship', label: 'รอส่ง', color: '#3b82f6' },
     { key: 'delivered', label: 'จัดส่งสำเร็จ', color: '#10b981' },
+    { key: 'partial', label: 'ส่งบางส่วน', color: '#f59e0b' },
     { key: 'failed', label: 'ค้างส่ง', color: '#f43f5e' },
     { key: 'cod_waiting', label: 'รอโอน', color: '#f59e0b' },
     { key: 'cod_transferred', label: 'โอนแล้ว', color: '#22c55e' },
@@ -496,11 +578,57 @@ const REPORT_STATUS: Array<{ key: OrderStatus; label: string; color: string }> =
   { key: 'ready', label: 'พร้อมส่ง', color: '#06b6d4' },
   { key: 'waiting_ship', label: 'รอส่ง', color: '#3b82f6' },
   { key: 'delivered', label: 'จัดส่งสำเร็จ', color: '#10b981' },
+  { key: 'partial', label: 'ส่งบางส่วน', color: '#f59e0b' },
   { key: 'failed', label: 'ค้างส่ง', color: '#f43f5e' },
   { key: 'cod_waiting', label: 'รอโอน', color: '#f59e0b' },
   { key: 'cod_transferred', label: 'โอนแล้ว', color: '#22c55e' },
   { key: 'oem', label: 'OEM // Made to order', color: '#a855f7' },
 ];
+
+// ---------- ประสิทธิภาพคนขับ (KPI) ----------
+export function computePerformance(
+  drivers: Driver[],
+  trips: TripT[],
+  orders: Order[],
+  history: StatusEventT[]
+): DriverPerformance[] {
+  const orderById = new Map(orders.map((o) => [o.id, o]));
+  return drivers
+    .map((d) => {
+      const driverTrips = trips.filter((t) => t.driver_id === d.id);
+      const orderIds = driverTrips.flatMap((t) => t.order_ids);
+      const dOrders = orderIds.map((id) => orderById.get(id)).filter(Boolean) as Order[];
+      const delivered = dOrders.filter((o) => o.status === 'delivered' || o.status === 'partial').length;
+      const failed = dOrders.filter((o) => o.status === 'failed').length;
+      const finished = delivered + failed;
+      const podRecords = history.filter((h) => h.driver_id === d.id && (h.status === 'delivered' || h.status === 'partial'));
+      const withProof = podRecords.filter((h) => h.photo_url || h.signature_url).length;
+      const codCollected = history.filter((h) => h.driver_id === d.id).reduce((s, h) => s + (h.cod_collected || 0), 0);
+      return {
+        driver_id: d.id, name: d.name, vehicle: d.vehicle,
+        trips: driverTrips.length,
+        deliveries: orderIds.length,
+        delivered, failed,
+        onTimeRate: finished ? Math.round((delivered / finished) * 100) : 0,
+        podRate: delivered ? Math.round((withProof / delivered) * 100) : 0,
+        codCollected,
+      } as DriverPerformance;
+    })
+    .sort((a, b) => b.delivered - a.delivered || b.onTimeRate - a.onTimeRate);
+}
+
+// สรุปผลการส่ง (สำเร็จ/บางส่วน/ค้าง) สำหรับ donut
+export function computeDeliveryOutcome(orders: Order[]) {
+  const delivered = orders.filter((o) => o.status === 'delivered').length;
+  const partial = orders.filter((o) => o.status === 'partial').length;
+  const failed = orders.filter((o) => o.status === 'failed').length;
+  const total = delivered + partial + failed || 1;
+  return [
+    { key: 'delivered', label: 'ส่งสำเร็จ', color: '#10b981', count: delivered, pct: Math.round((delivered / total) * 100) },
+    { key: 'partial', label: 'ส่งบางส่วน', color: '#f59e0b', count: partial, pct: Math.round((partial / total) * 100) },
+    { key: 'failed', label: 'ค้างส่ง', color: '#f43f5e', count: failed, pct: Math.round((failed / total) * 100) },
+  ];
+}
 
 export function computeReport(orders: Order[]): ReportSummary {
   const total = orders.length || 1;

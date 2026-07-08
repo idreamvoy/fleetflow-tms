@@ -23,6 +23,7 @@ CREATE TYPE order_status AS ENUM (
   'ready',            -- พร้อมส่ง
   'waiting_ship',     -- รอส่ง
   'delivered',        -- จัดส่งสำเร็จ
+  'partial',          -- ส่งบางส่วน
   'failed',           -- ค้างส่ง
   'cod_waiting',      -- รอโอน
   'cod_transferred',  -- โอนแล้ว
@@ -62,6 +63,8 @@ CREATE TABLE orders (
   status            order_status DEFAULT 'unspecified',
   cod_amount        NUMERIC(12,2) DEFAULT 0,
   ship_date         DATE,                          -- กำหนดจัดส่ง
+  delivered_at      TIMESTAMPTZ,                   -- เวลาส่งจริง (POD)
+  delivered_by      BIGINT REFERENCES drivers(id),-- คนขับที่ส่ง
   created_at        TIMESTAMPTZ DEFAULT now()
 );
 
@@ -74,7 +77,9 @@ CREATE TABLE order_items (
   qty            INT NOT NULL DEFAULT 1,   -- จำนวน (ชิ้น)
   pieces_per_box INT NOT NULL DEFAULT 1,   -- ชิ้น/กล่อง
   boxes          INT NOT NULL DEFAULT 1,   -- กล่อง
-  note           TEXT DEFAULT ''
+  note           TEXT DEFAULT '',
+  delivered_qty  INT,                      -- ส่งได้จริง (partial)
+  item_status    TEXT DEFAULT 'pending'    -- pending/delivered/partial/returned
 );
 
 -- ---------- รอบจัดส่ง ----------
@@ -106,11 +111,13 @@ CREATE TABLE trip_stops (
 CREATE TABLE status_history (
   id         BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   order_id   BIGINT NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
-  status     order_status NOT NULL,
-  note       TEXT,
-  by_driver  BIGINT REFERENCES drivers(id),
-  photo_url  TEXT,
-  created_at TIMESTAMPTZ DEFAULT now()
+  status        order_status NOT NULL,
+  note          TEXT,
+  by_driver     BIGINT REFERENCES drivers(id),
+  photo_url     TEXT,                    -- รูปหน้างาน (POD)
+  signature_url TEXT,                    -- ลายเซ็นผู้รับ (PNG)
+  cod_collected NUMERIC(12,2),           -- COD ที่เก็บได้จริง
+  created_at    TIMESTAMPTZ DEFAULT now()
 );
 
 -- ---------- Indexes ----------
