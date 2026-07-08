@@ -303,6 +303,55 @@ table.data tbody tr:last-child td { border-bottom: none; }
 
 /* ---------- Planning ---------- */
 .zone-pill { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 6px; background: #f1f5f9; color: var(--text-2); }
+/* สรุปภาพรวมการวางแผน */
+.plan-summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 16px; }
+.ps-card { display: flex; align-items: center; gap: 12px; background: #fff; border: 1px solid var(--border); border-radius: 14px; padding: 14px 16px; }
+.ps-ico { width: 38px; height: 38px; border-radius: 10px; display: grid; place-items: center; flex-shrink: 0; }
+.ps-val { font-size: 20px; font-weight: 800; color: var(--text); }
+.ps-val span { font-size: 13px; font-weight: 600; color: var(--text-2); }
+.ps-label { font-size: 12px; color: var(--text-2); margin-top: 1px; }
+
+/* smart-assign + warnings */
+.rec-badge { display: inline-block; margin-top: 6px; font-size: 11px; font-weight: 600; color: var(--indigo); background: #eef2ff; border-radius: 6px; padding: 2px 8px; }
+.rec-badge.none { color: var(--rose); background: #ffe4e6; }
+.warn-tag { font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 5px; }
+.warn-tag.urgent { background: #fff1e6; color: #ea580c; }
+.warn-tag.zone { background: #fef3c7; color: #b45309; }
+.btn.mini, .btn.xs { padding: 6px 10px; font-size: 12px; }
+
+/* load bar */
+.load-bar { height: 6px; border-radius: 3px; background: #f1f5f9; overflow: hidden; margin: 5px 0 3px; }
+.load-bar > div { height: 100%; border-radius: 3px; }
+
+/* route summary + ETA */
+.route-summary { display: flex; gap: 8px; margin-top: 12px; background: #f8faff; border: 1px solid #e0e7ff; border-radius: 10px; padding: 10px; }
+.route-summary > div { flex: 1; text-align: center; }
+.rs-label { display: block; font-size: 11px; color: var(--text-2); }
+.rs-val { display: block; font-weight: 700; font-size: 14px; color: var(--indigo); }
+.stop-eta { font-size: 11px; color: var(--cyan); font-weight: 600; margin-top: 2px; }
+.plan-stop.drag { cursor: grab; }
+.plan-stop.drag:active { cursor: grabbing; }
+.plan-stop.dragging { opacity: 0.4; border: 1px dashed var(--indigo); }
+.manifest { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; margin-top: 12px; padding-top: 10px; border-top: 1px dashed var(--border); font-size: 13px; }
+.manifest b { color: var(--text); }
+
+/* detail drawer */
+.drawer-overlay { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.45); z-index: 200; display: flex; justify-content: flex-end; }
+.drawer { width: 420px; max-width: 92vw; height: 100%; background: #fff; box-shadow: var(--shadow-lg); overflow-y: auto; animation: slidein 0.18s ease; }
+@keyframes slidein { from { transform: translateX(30px); opacity: 0.6; } to { transform: translateX(0); opacity: 1; } }
+.drawer-head { display: flex; justify-content: space-between; align-items: flex-start; padding: 20px 24px; border-bottom: 1px solid var(--border); }
+.drawer-code code { font-size: 12px; color: var(--text-2); }
+.drawer-body { padding: 20px 24px; }
+.detail-row { margin-bottom: 16px; }
+.detail-grid { display: flex; flex-direction: column; gap: 14px; }
+.detail-item { display: flex; gap: 10px; }
+.di-ico { width: 30px; height: 30px; border-radius: 8px; background: #f1f5f9; color: var(--text-2); display: grid; place-items: center; flex-shrink: 0; }
+.di-label { font-size: 12px; color: var(--text-2); }
+.di-val { font-weight: 600; font-size: 14px; }
+.detail-section-title { font-weight: 700; margin: 20px 0 10px; }
+.detail-items { display: flex; flex-direction: column; gap: 8px; }
+.detail-item-row { display: flex; gap: 12px; background: #f8fafc; border-radius: 10px; padding: 12px; }
+
 .filter-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 16px; }
 .filter-label { font-weight: 600; color: var(--text-2); }
 .card-scroll { padding: 16px; display: flex; flex-direction: column; gap: 12px; max-height: 620px; overflow-y: auto; }
@@ -410,6 +459,8 @@ table.data tbody tr:last-child td { border-bottom: none; }
   .kpi-grid { grid-template-columns: 1fr; }
   .modal-body { grid-template-columns: 1fr; }
   .item-grid { grid-template-columns: 1fr 1fr; }
+  .plan-summary { grid-template-columns: 1fr; }
+  .drawer { width: 100%; }
   .cal-cell { min-height: 54px; padding: 4px; }
   .cal-badge { font-size: 9px; padding: 1px 3px; }
   .cal-boxes { display: none; }

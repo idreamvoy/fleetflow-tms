@@ -412,6 +412,17 @@ export const db = {
     await supabase.from('orders').update({ status: 'ready' }).eq('id', orderId);
   },
 
+  // บันทึกลำดับจุดส่งใหม่ (จัดลำดับอัตโนมัติ / ลากวาง)
+  async reorderTripStops(tripId: number, orderIds: number[]): Promise<void> {
+    if (!supabase) {
+      demoTrips = demoTrips.map((t) => (t.id === tripId ? { ...t, order_ids: orderIds } : t));
+      return;
+    }
+    await Promise.all(
+      orderIds.map((oid, seq) => supabase!.from('trip_stops').update({ seq }).eq('trip_id', tripId).eq('order_id', oid))
+    );
+  },
+
   async getMovements(): Promise<StatusMovement[]> {
     // demo: log ตัวอย่าง; ของจริงดึงจาก status_history
     return [...demoMovements];

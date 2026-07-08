@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'react';
 import type { Order, Trip, OrderStatus } from '../lib/types';
 import { CARRIERS, TRIP_STATUS_LABEL } from '../lib/types';
-import { IconRoute, IconPin } from '../components/icons';
+import { IconRoute, IconPin, IconTruck, IconBox } from '../components/icons';
+import OrderDetail from '../components/OrderDetail';
+import { geocode, optimizeOrder, routePlan, fmtClock, fmtDuration, WAREHOUSE, haversine } from '../lib/geo';
 
-// สถานะที่ถือว่า "รอจัดรถ" (ตามที่ลูกค้ากำหนด)
 const WAITING_STATUSES: OrderStatus[] = ['ready', 'cod_waiting', 'cod_transferred', 'oem'];
 
 export default function Planning({
@@ -11,11 +12,13 @@ export default function Planning({
   trips,
   onAssign,
   onUnassign,
+  onReorder,
 }: {
   orders: Order[];
   trips: Trip[];
   onAssign: (orderId: number, tripId: number) => Promise<void>;
   onUnassign: (orderId: number, tripId: number) => Promise<void>;
+  onReorder: (tripId: number, orderIds: number[]) => Promise<void>;
 }) {
   const assignedIds = useMemo(() => new Set(trips.flatMap((t) => t.order_ids)), [trips]);
   const unassigned = orders.filter((o) => !assignedIds.has(o.id) && WAITING_STATUSES.includes(o.status));
@@ -23,9 +26,35 @@ export default function Planning({
   const [selectedTrip, setSelectedTrip] = useState<number>(trips[0]?.id ?? 0);
   const [carriers, setCarriers] = useState<Record<number, string>>({});
   const [busy, setBusy] = useState<number | null>(null);
-
-  // ฟิลเตอร์ตามวันกำหนดจัดส่ง
+  const [detail, setDetail] = useState<Order | null>(null);
   const [day, setDay] = useState<string>('all');
+  const [dragIdx, setDragIdx] = useState<number | null>(null);
+
+  const stopsOf = (t: Trip) => t.order_ids.map((id) => orders.find((o) => o.id === id)).filter(Boolean) as Order[];
+  const usedBoxes = (t: Trip) => stopsOf(t).reduce((s, o) => s + o.box_count, 0);
+  const isUrgent = (o: Order) => o.items.some((it) => (it.note || '').includes('ด่วน'));
+  const productSummary = (o: Order) => {
+    const first = o.items[0]?.product_name ?? '';
+    return o.items.length > 1 ? `${first} +${o.items.length - 1} รายการ` : first;
+  };
+
+  // ---- Smart assign: เที่ยวที่แนะนำสำหรับออเดอร์ ----
+  const recommendTrip = (o: Order): Trip | null => {
+    const fit = trips.filter((t) => t.zone_id === o.zone_id && usedBoxes(t) + o.box_count <= t.capacity_boxes);
+    if (!fit.length) return null;
+    const oPt = geocode(o.delivery_location, o.zone_id);
+    let best = fit[0];
+    let bestD = Infinity;
+    fit.forEach((t) => {
+      const st = stopsOf(t);
+      const last = st.length ? geocode(st[st.length - 1].delivery_location, st[st.length - 1].zone_id) : WAREHOUSE;
+      const d = haversine(last, oPt);
+      if (d < bestD) { bestD = d; best = t; }
+    });
+    return best;
+  };
+
+  // ---- date filter ----
   const dayOptions = useMemo(() => {
     const s = new Set<string>();
     unassigned.forEach((o) => o.ship_date && s.add(o.ship_date));
@@ -34,32 +63,66 @@ export default function Planning({
   const shown = day === 'all' ? unassigned : unassigned.filter((o) => o.ship_date === day);
   const fmtDay = (d: string) => new Date(d).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' });
 
-  const assign = async (orderId: number) => {
-    if (!selectedTrip) return;
+  // ---- actions ----
+  const assign = async (orderId: number, tripId: number) => {
+    if (!tripId) return;
     setBusy(orderId);
-    try { await onAssign(orderId, selectedTrip); } finally { setBusy(null); }
+    try { await onAssign(orderId, tripId); } finally { setBusy(null); }
   };
   const unassign = async (orderId: number, tripId: number) => {
     setBusy(orderId);
     try { await onUnassign(orderId, tripId); } finally { setBusy(null); }
   };
-
-  const productSummary = (o: Order) => {
-    const first = o.items[0]?.product_name ?? '';
-    return o.items.length > 1 ? `${first} +${o.items.length - 1} รายการ` : first;
+  const optimize = async (t: Trip) => {
+    const st = stopsOf(t);
+    if (st.length < 2) return;
+    const pts = st.map((o) => geocode(o.delivery_location, o.zone_id));
+    const nn = optimizeOrder(pts);
+    // เลือกลำดับที่สั้นกว่า ระหว่าง nearest-neighbor กับลำดับปัจจุบัน (กันไม่ให้แย่ลง)
+    const nnKm = routePlan(nn.map((i) => pts[i])).totalKm;
+    const curKm = routePlan(pts).totalKm;
+    const best = nnKm < curKm ? nn : pts.map((_, i) => i);
+    await onReorder(t.id, best.map((i) => st[i].id));
   };
-  const usedBoxes = (t: Trip) => t.order_ids.reduce((s, id) => s + (orders.find((o) => o.id === id)?.box_count ?? 0), 0);
-
-  // เปิด Google Maps นำทางตามลำดับจุดส่ง
-  const openRoute = (t: Trip) => {
-    const stops = t.order_ids.map((id) => orders.find((o) => o.id === id)).filter(Boolean) as Order[];
-    if (!stops.length) return;
-    const parts = ['คลังสินค้า FleetFlow กรุงเทพ', ...stops.map((o) => `${o.delivery_location} ประเทศไทย`)];
+  const openMaps = (t: Trip) => {
+    const st = stopsOf(t);
+    if (!st.length) return;
+    const parts = ['คลังสินค้า FleetFlow กรุงเทพ', ...st.map((o) => `${o.delivery_location} ประเทศไทย`)];
     window.open('https://www.google.com/maps/dir/' + parts.map((p) => encodeURIComponent(p)).join('/'), '_blank');
   };
+  const drop = async (t: Trip, dropIdx: number) => {
+    if (dragIdx === null || dragIdx === dropIdx) { setDragIdx(null); return; }
+    const ids = [...t.order_ids];
+    const [moved] = ids.splice(dragIdx, 1);
+    ids.splice(dropIdx, 0, moved);
+    setDragIdx(null);
+    await onReorder(t.id, ids);
+  };
+
+  // ---- summary ----
+  const waitingBoxes = unassigned.reduce((s, o) => s + o.box_count, 0);
+  const bkkWait = unassigned.filter((o) => o.zone_id === 1).length;
+  const upcWait = unassigned.filter((o) => o.zone_id !== 1).length;
+  const freeTrucks = trips.filter((t) => usedBoxes(t) < t.capacity_boxes).length;
 
   return (
     <>
+      {/* สรุปภาพรวมการวางแผน */}
+      <div className="plan-summary">
+        <div className="ps-card">
+          <div className="ps-ico" style={{ background: '#eef2ff', color: '#6366f1' }}><IconBox width={18} height={18} /></div>
+          <div><div className="ps-val">{unassigned.length} <span>รายการ</span></div><div className="ps-label">รอจัดรถ · {waitingBoxes} กล่อง</div></div>
+        </div>
+        <div className="ps-card">
+          <div className="ps-ico" style={{ background: '#ecfeff', color: '#0891b2' }}><IconPin width={18} height={18} /></div>
+          <div><div className="ps-val">{bkkWait} <span>/ {upcWait}</span></div><div className="ps-label">กทม. / ต่างจังหวัด</div></div>
+        </div>
+        <div className="ps-card">
+          <div className="ps-ico" style={{ background: '#dcfce7', color: '#10b981' }}><IconTruck width={18} height={18} /></div>
+          <div><div className="ps-val">{freeTrucks} <span>/ {trips.length} คัน</span></div><div className="ps-label">รถที่ยังรับได้</div></div>
+        </div>
+      </div>
+
       {/* ฟิลเตอร์วันกำหนดจัดส่ง */}
       <div className="filter-bar">
         <span className="filter-label">กำหนดจัดส่ง:</span>
@@ -79,7 +142,7 @@ export default function Planning({
           <div className="card-header">
             <div>
               <h3>ออเดอร์รอจัดรถ</h3>
-              <div className="sub">เลือกเที่ยวทางขวา แล้วกด “จัดเข้าเที่ยว”</div>
+              <div className="sub">คลิกการ์ดเพื่อดูรายละเอียด · ระบบแนะนำรถที่เหมาะให้</div>
             </div>
             <span className="sub">{shown.length} รายการ</span>
           </div>
@@ -87,40 +150,59 @@ export default function Planning({
             {shown.length === 0 ? (
               <div className="loading">ไม่มีออเดอร์รอจัดรถ 🎉</div>
             ) : (
-              shown.map((o) => (
-                <div key={o.id} className="wait-card">
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 2 }}>
-                      <code>{o.order_no}</code>
-                      <span className="zone-pill">{o.zone_id === 1 ? 'กทม.' : 'ต่างจังหวัด'}</span>
+              shown.map((o) => {
+                const rec = recommendTrip(o);
+                return (
+                  <div key={o.id} className="wait-card">
+                    <div style={{ flex: 1, minWidth: 0, cursor: 'pointer' }} onClick={() => setDetail(o)}>
+                      <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 2, flexWrap: 'wrap' }}>
+                        <code>{o.order_no}</code>
+                        <span className="zone-pill">{o.zone_id === 1 ? 'กทม.' : 'ต่างจังหวัด'}</span>
+                        {isUrgent(o) && <span className="warn-tag urgent">🔥 ด่วน</span>}
+                      </div>
+                      <div style={{ fontWeight: 600 }}>{o.customer_name}</div>
+                      <div className="sub" style={{ color: '#94a3b8' }}>{productSummary(o)}</div>
+                      <div className="sub" style={{ color: '#94a3b8' }}>{o.delivery_location} · {o.box_count} กล่อง</div>
+                      {rec ? (
+                        <div className="rec-badge">💡 แนะนำ TR-{String(rec.id).padStart(2, '0')}</div>
+                      ) : (
+                        <div className="rec-badge none">⚠️ ไม่มีรถโซนนี้ว่างพอ</div>
+                      )}
                     </div>
-                    <div style={{ fontWeight: 600 }}>{o.customer_name}</div>
-                    <div className="sub" style={{ color: '#94a3b8' }}>{productSummary(o)}</div>
-                    <div className="sub" style={{ color: '#94a3b8' }}>{o.delivery_location} · {o.box_count} กล่อง</div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignSelf: 'center' }}>
+                      <button className="btn btn-primary" style={{ whiteSpace: 'nowrap' }} disabled={busy === o.id || !selectedTrip} onClick={() => assign(o.id, selectedTrip)}>
+                        {busy === o.id ? '…' : `จัดเข้า TR-${String(selectedTrip).padStart(2, '0')}`}
+                      </button>
+                      {rec && rec.id !== selectedTrip && (
+                        <button className="btn btn-ghost mini" disabled={busy === o.id} onClick={() => assign(o.id, rec.id)}>
+                          จัดตามแนะนำ
+                        </button>
+                      )}
+                    </div>
                   </div>
-                  <button className="btn btn-primary" style={{ alignSelf: 'center', whiteSpace: 'nowrap' }} disabled={busy === o.id || !selectedTrip} onClick={() => assign(o.id)}>
-                    {busy === o.id ? '…' : 'จัดเข้าเที่ยว'}
-                  </button>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </div>
 
-        {/* ขวา: เที่ยวรถวันนี้ */}
+        {/* ขวา: เที่ยวรถ */}
         <div className="card">
           <div className="card-header">
             <div>
               <h3>เที่ยวรถวันนี้ · TR-{String(selectedTrip).padStart(2, '0')}</h3>
-              <div className="sub">คลิกการ์ดเพื่อเลือกเที่ยวปลายทาง · แก้ไข/ยกเลิกได้</div>
+              <div className="sub">คำนวณเส้นทาง · จัดลำดับ · ลากวางปรับลำดับได้</div>
             </div>
           </div>
           <div className="card-scroll">
             {trips.map((t) => {
+              const stops = stopsOf(t);
               const used = usedBoxes(t);
-              const stops = t.order_ids.map((id) => orders.find((o) => o.id === id)).filter(Boolean) as Order[];
-              const active = t.id === selectedTrip;
+              const pct = Math.round((used / t.capacity_boxes) * 100);
               const over = used > t.capacity_boxes;
+              const active = t.id === selectedTrip;
+              const plan = active ? routePlan(stops.map((o) => geocode(o.delivery_location, o.zone_id))) : null;
+              const codTotal = stops.reduce((s, o) => s + o.cod_amount, 0);
               return (
                 <div key={t.id} className={`plan-trip${active ? ' active' : ''}`} onClick={() => setSelectedTrip(t.id)}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
@@ -131,13 +213,14 @@ export default function Planning({
                       </div>
                       <div className="sub" style={{ color: '#94a3b8' }}>{t.vehicle_type} · {t.driver_name}</div>
                     </div>
-                    <div style={{ textAlign: 'right' }}>
+                    <div style={{ textAlign: 'right', minWidth: 120 }}>
                       <div style={{ fontWeight: 700, color: over ? 'var(--rose)' : 'inherit' }}>{used} / {t.capacity_boxes} กล่อง</div>
-                      <div className="sub" style={{ color: '#94a3b8' }}>{stops.length} จุดส่ง</div>
+                      <div className="load-bar"><div style={{ width: `${Math.min(100, pct)}%`, background: over ? 'var(--rose)' : pct > 80 ? 'var(--amber)' : 'var(--indigo)' }} /></div>
+                      <div className="sub" style={{ color: over ? 'var(--rose)' : '#94a3b8' }}>{over ? `เกินความจุ ${pct}%` : `${pct}% · ${stops.length} จุด`}</div>
                     </div>
                   </div>
 
-                  {/* ขนส่งประจำคัน (ด้านบนการ์ด) + คำนวณเส้นทาง */}
+                  {/* toolbar: ขนส่ง + คำนวณ + จัดลำดับ */}
                   <div className="trip-toolbar" onClick={(e) => e.stopPropagation()}>
                     <label className="trip-carrier">
                       <span>ขนส่ง</span>
@@ -145,31 +228,63 @@ export default function Planning({
                         {CARRIERS.map((c) => <option key={c} value={c}>{c}</option>)}
                       </select>
                     </label>
-                    <button className="btn btn-ghost" disabled={!stops.length} onClick={() => openRoute(t)}>
-                      <IconRoute width={16} height={16} /> คำนวณเส้นทาง
+                    <button className="btn btn-ghost xs" disabled={stops.length < 2} onClick={() => optimize(t)} title="จัดลำดับจุดส่งให้สั้นที่สุด">
+                      <IconRoute width={15} height={15} /> จัดลำดับอัตโนมัติ
                     </button>
+                    <button className="btn btn-ghost xs" disabled={!stops.length} onClick={() => openMaps(t)}>แผนที่</button>
                   </div>
 
                   {active && (
-                    <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                      {stops.length === 0 ? (
-                        <div className="sub" style={{ color: '#94a3b8', padding: '4px 2px' }}>ยังไม่มีจุดส่ง — จัดออเดอร์เข้าเที่ยวนี้ได้</div>
-                      ) : (
-                        stops.map((o) => (
-                          <div key={o.id} className="plan-stop">
-                            <div className="stop-num"><IconPin width={13} height={13} /></div>
-                            <div style={{ flex: 1, minWidth: 0 }}>
-                              <div style={{ fontWeight: 600 }}>{o.customer_name}</div>
-                              <div className="sub" style={{ color: '#94a3b8' }}>{o.delivery_location} · {o.box_count} กล่อง</div>
-                            </div>
-                            <button className="stop-remove" title="นำออกจากเที่ยว" disabled={busy === o.id} onClick={() => unassign(o.id, t.id)}>×</button>
-                          </div>
-                        ))
+                    <>
+                      {/* สรุปเส้นทาง */}
+                      {plan && stops.length > 0 && (
+                        <div className="route-summary">
+                          <div><span className="rs-label">ระยะรวม</span><span className="rs-val">~{plan.totalKm} กม.</span></div>
+                          <div><span className="rs-label">เวลาเดินทาง</span><span className="rs-val">~{fmtDuration(plan.totalMin)}</span></div>
+                          <div><span className="rs-label">ถึงจุดสุดท้าย</span><span className="rs-val">{fmtClock(plan.legs[plan.legs.length - 1].etaMin)}</span></div>
+                        </div>
                       )}
-                      <div className="sub" style={{ color: 'var(--indigo)', fontWeight: 600, marginTop: 2 }}>
-                        สถานะเที่ยว: {TRIP_STATUS_LABEL[t.status]}
+
+                      {/* จุดส่ง (ลากวางได้) */}
+                      <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        {stops.length === 0 ? (
+                          <div className="sub" style={{ color: '#94a3b8', padding: '4px 2px' }}>ยังไม่มีจุดส่ง — จัดออเดอร์เข้าเที่ยวนี้ได้</div>
+                        ) : (
+                          stops.map((o, i) => {
+                            const mismatch = o.zone_id !== t.zone_id;
+                            return (
+                              <div
+                                key={o.id}
+                                className={`plan-stop drag${dragIdx === i ? ' dragging' : ''}`}
+                                draggable
+                                onDragStart={() => setDragIdx(i)}
+                                onDragOver={(e) => e.preventDefault()}
+                                onDrop={() => drop(t, i)}
+                              >
+                                <div className="stop-num">{i + 1}</div>
+                                <div style={{ flex: 1, minWidth: 0, cursor: 'pointer' }} onClick={() => setDetail(o)}>
+                                  <div style={{ fontWeight: 600, display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+                                    {o.customer_name}
+                                    {mismatch && <span className="warn-tag zone">⚠️ ผิดโซน</span>}
+                                    {isUrgent(o) && <span className="warn-tag urgent">🔥</span>}
+                                  </div>
+                                  <div className="sub" style={{ color: '#94a3b8' }}>{o.delivery_location} · {o.box_count} กล่อง</div>
+                                  {plan && <div className="stop-eta">ถึง ~{fmtClock(plan.legs[i].etaMin)} · {plan.legs[i].km} กม.</div>}
+                                </div>
+                                <button className="stop-remove" title="นำออกจากเที่ยว" disabled={busy === o.id} onClick={(e) => { e.stopPropagation(); unassign(o.id, t.id); }}>×</button>
+                              </div>
+                            );
+                          })
+                        )}
                       </div>
-                    </div>
+
+                      {/* manifest */}
+                      <div className="manifest">
+                        <span>รวม <b>{used}</b> กล่อง · <b>{stops.length}</b> จุด</span>
+                        <span>COD รวม <b>฿{codTotal.toLocaleString()}</b></span>
+                        <span className="sub" style={{ color: 'var(--indigo)', fontWeight: 600 }}>{TRIP_STATUS_LABEL[t.status]}</span>
+                      </div>
+                    </>
                   )}
                 </div>
               );
@@ -177,6 +292,8 @@ export default function Planning({
           </div>
         </div>
       </div>
+
+      <OrderDetail order={detail} onClose={() => setDetail(null)} />
     </>
   );
 }

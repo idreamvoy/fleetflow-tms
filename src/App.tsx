@@ -110,6 +110,12 @@ export default function App() {
     flash(`นำออกจาก TR-${String(tripId).padStart(2, '0')} แล้ว · กลับไปรอจัดรถ`);
   }
 
+  async function handleReorder(tripId: number, orderIds: number[]) {
+    await db.reorderTripStops(tripId, orderIds);
+    await loadAll();
+    flash(`จัดลำดับจุดส่ง TR-${String(tripId).padStart(2, '0')} แล้ว ✓`);
+  }
+
   async function handlePod(order: Order, status: OrderStatus, note: string, driverName: string) {
     await db.recordStatus(order, status, note, driverName);
     await loadAll();
@@ -156,7 +162,7 @@ export default function App() {
           ) : page === 'orders' ? (
             <Orders orders={filteredOrders} onAdd={openAdd} onEdit={openEdit} onStatusChange={handleStatusChange} onDelete={handleDelete} />
           ) : page === 'planning' ? (
-            <Planning orders={orders} trips={trips} onAssign={handleAssign} onUnassign={handleUnassign} />
+            <Planning orders={orders} trips={trips} onAssign={handleAssign} onUnassign={handleUnassign} onReorder={handleReorder} />
           ) : page === 'tracking' ? (
             <Tracking trips={trips} orders={orders} />
           ) : page === 'driver' ? (
