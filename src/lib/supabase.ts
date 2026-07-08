@@ -37,6 +37,27 @@ export const supabase: SupabaseClient | null = IS_SUPABASE_CONFIGURED
   ? createClient(URL as string, KEY as string)
   : null;
 
+// ---------- POD assets → Supabase Storage ----------
+export const POD_BUCKET = 'pod';
+// อัปโหลด dataURL (รูป/ลายเซ็น) ขึ้น Storage → คืน public URL
+// ถ้าไม่มี bucket/อัปโหลดพลาด → คืน base64 เดิม (ระบบยังทำงานได้)
+async function uploadPodAsset(dataUrl: string | null, orderId: number, kind: 'photo' | 'sign'): Promise<string | null> {
+  if (!dataUrl || !supabase || !dataUrl.startsWith('data:')) return dataUrl;
+  try {
+    const blob = await (await fetch(dataUrl)).blob();
+    const ext = kind === 'sign' ? 'png' : 'jpg';
+    const path = `order-${orderId}/${kind}-${Date.now()}.${ext}`;
+    const { error } = await supabase.storage
+      .from(POD_BUCKET)
+      .upload(path, blob, { contentType: blob.type || (kind === 'sign' ? 'image/png' : 'image/jpeg'), upsert: true });
+    if (error) { console.warn('POD upload → fallback base64:', error.message); return dataUrl; }
+    return supabase.storage.from(POD_BUCKET).getPublicUrl(path).data.publicUrl;
+  } catch (e) {
+    console.warn('POD upload error → keeping base64', e);
+    return dataUrl;
+  }
+}
+
 export const DEMO_ZONES: Zone[] = [
   { id: 1, name: 'กรุงเทพฯ & ปริมณฑล', color: '#6366f1' },
   { id: 2, name: 'ต่างจังหวัด', color: '#f59e0b' },
@@ -529,10 +550,15 @@ export const db = {
     await Promise.all(
       items.map((p) => supabase!.from('order_items').update({ delivered_qty: p.delivered_qty, item_status: p.item_status }).eq('id', p.item_id))
     );
+    // อัปโหลดหลักฐานขึ้น Storage (คืน public URL; ถ้าพลาด → base64 เดิม)
+    const [photoStored, signStored] = await Promise.all([
+      uploadPodAsset(photo_url, order.id, 'photo'),
+      uploadPodAsset(signature_url, order.id, 'sign'),
+    ]);
     // status_history: หลักฐาน POD
     const { error: e3 } = await supabase.from('status_history').insert({
       order_id: order.id, status: overall_status, note: note || null, by_driver: driver_id,
-      photo_url, signature_url, cod_collected,
+      photo_url: photoStored, signature_url: signStored, cod_collected,
     });
     if (e3) console.error('recordDelivery history', e3);
   },

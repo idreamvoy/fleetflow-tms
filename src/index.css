@@ -334,6 +334,14 @@ table.data tbody tr:last-child td { border-bottom: none; }
 .ps-num { font-weight: 800; font-size: 15px; }
 .ps-cap { font-size: 10px; color: var(--text-2); text-transform: uppercase; }
 
+/* POD proof gallery */
+.pod-gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; }
+.pod-proof { border: 1px solid var(--border); border-radius: 12px; overflow: hidden; background: #f8fafc; }
+.pod-proof-thumbs { display: flex; gap: 2px; background: #e2e8f0; }
+.pod-thumb { flex: 1; height: 96px; object-fit: cover; cursor: zoom-in; background: #fff; display: grid; place-items: center; font-size: 28px; }
+.pod-thumb.ph { color: #cbd5e1; cursor: default; }
+.pod-proof-info { padding: 10px 12px; display: flex; flex-direction: column; gap: 4px; align-items: flex-start; }
+
 /* ---------- Multi-item order modal ---------- */
 .modal-lg { max-width: 760px; }
 .items-head { display: flex; justify-content: space-between; align-items: center; padding: 4px 24px 8px; margin-top: 4px; border-top: 1px solid var(--border); padding-top: 14px; font-weight: 700; }

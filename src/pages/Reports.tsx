@@ -2,7 +2,15 @@ import { useState } from 'react';
 import type { Order, StatusMovement, Driver, Trip, StatusEvent } from '../lib/types';
 import { computeReport, computePerformance, computeDeliveryOutcome } from '../lib/supabase';
 import Donut from '../components/Donut';
+import { StatusBadge } from '../components/badges';
 import { IconCheck, IconBox, IconDownload, IconChart, IconTruck } from '../components/icons';
+
+// รูป/ลายเซ็น POD — รองรับทั้ง URL จริงและ placeholder เดโม
+function ProofThumb({ src, emoji, onOpen }: { src: string; emoji: string; onOpen: (s: string) => void }) {
+  const real = src.startsWith('data:') || src.startsWith('http');
+  if (!real) return <div className="pod-thumb ph">{emoji}</div>;
+  return <img className="pod-thumb" src={src} alt="proof" onClick={() => onOpen(src)} />;
+}
 
 function exportLog(movements: StatusMovement[]) {
   const rows = [['เวลา', 'เลขที่ใบสั่ง', 'จาก', 'เป็น', 'โดย']];
@@ -32,8 +40,10 @@ export default function Reports({
   history: StatusEvent[];
 }) {
   const [tab, setTab] = useState<'summary' | 'drivers'>('summary');
+  const [lightbox, setLightbox] = useState<string | null>(null);
   const r = computeReport(orders);
   const perf = computePerformance(drivers, trips, orders, history);
+  const podProofs = history.filter((h) => h.photo_url || h.signature_url).slice(0, 12);
   const outcome = computeDeliveryOutcome(orders);
   const outcomeTotal = outcome.reduce((s, o) => s + o.count, 0);
   const podRecords = history.filter((h) => h.status === 'delivered' || h.status === 'partial');
@@ -165,7 +175,39 @@ export default function Reports({
               {perf.length === 0 && <div className="loading">ยังไม่มีข้อมูลคนขับ</div>}
             </div>
           </div>
+
+          {/* หลักฐานการส่ง (POD) */}
+          <div className="card">
+            <div className="card-header"><div><h3>หลักฐานการส่งล่าสุด</h3><div className="sub">Proof of delivery · รูป + ลายเซ็น (แตะเพื่อขยาย)</div></div></div>
+            <div className="card-pad">
+              {podProofs.length === 0 ? (
+                <div className="loading">ยังไม่มีหลักฐานการส่ง</div>
+              ) : (
+                <div className="pod-gallery">
+                  {podProofs.map((h) => (
+                    <div className="pod-proof" key={h.id}>
+                      <div className="pod-proof-thumbs">
+                        {h.photo_url && <ProofThumb src={h.photo_url} emoji="📷" onOpen={setLightbox} />}
+                        {h.signature_url && <ProofThumb src={h.signature_url} emoji="✍️" onOpen={setLightbox} />}
+                      </div>
+                      <div className="pod-proof-info">
+                        <code>{h.order_no}</code>
+                        <StatusBadge status={h.status} />
+                        <div className="sub">{h.by_driver ?? '—'} · {new Date(h.created_at).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })}{h.cod_collected ? ` · COD ฿${h.cod_collected.toLocaleString()}` : ''}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
         </>
+      )}
+
+      {lightbox && (
+        <div className="overlay" onClick={() => setLightbox(null)} style={{ cursor: 'zoom-out' }}>
+          <img src={lightbox} alt="POD" style={{ maxWidth: '90vw', maxHeight: '90vh', borderRadius: 12, background: '#fff' }} />
+        </div>
       )}
     </>
   );
