@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { NewOrder, NewOrderItem, Zone, OrderStatus, CustomerType, ShippingMethod, Collection } from '../lib/types';
+import type { NewOrder, NewOrderItem, Order, Zone, OrderStatus, CustomerType, ShippingMethod, Collection } from '../lib/types';
 import { COLLECTIONS } from '../lib/types';
 import { STATUS_LABEL } from './badges';
 import { IconPlus } from './icons';
@@ -11,25 +11,32 @@ const blankItem = (): ItemRow => ({ collection: 'Hotel Premium', product_name: '
 
 export default function OrderModal({
   zones,
+  order,
   onClose,
   onSave,
 }: {
   zones: Zone[];
+  order?: Order | null;
   onClose: () => void;
   onSave: (o: NewOrder) => Promise<void>;
 }) {
+  const isEdit = !!order;
   const [saving, setSaving] = useState(false);
   const [f, setF] = useState({
-    order_no: `SO-6907-${Math.floor(100 + Math.random() * 900)}`,
-    customer_type: 'hotel' as CustomerType,
-    customer_name: '',
-    delivery_location: '',
-    shipping_method: 'company' as ShippingMethod,
-    zone_id: zones[0]?.id ?? 1,
-    status: 'ready' as OrderStatus,
-    cod_amount: 0,
+    order_no: order?.order_no ?? `SO-6907-${Math.floor(100 + Math.random() * 900)}`,
+    customer_type: (order?.customer_type ?? 'hotel') as CustomerType,
+    customer_name: order?.customer_name ?? '',
+    delivery_location: order?.delivery_location ?? '',
+    shipping_method: (order?.shipping_method ?? 'company') as ShippingMethod,
+    zone_id: order?.zone_id ?? zones[0]?.id ?? 1,
+    status: (order?.status ?? 'ready') as OrderStatus,
+    cod_amount: order?.cod_amount ?? 0,
   });
-  const [items, setItems] = useState<ItemRow[]>([blankItem()]);
+  const [items, setItems] = useState<ItemRow[]>(
+    order && order.items.length
+      ? order.items.map((it) => ({ collection: it.collection, product_name: it.product_name, qty: it.qty, pieces_per_box: it.pieces_per_box }))
+      : [blankItem()]
+  );
   const set = (k: keyof typeof f, v: any) => setF((s) => ({ ...s, [k]: v }));
 
   const addItem = () => setItems((rows) => [...rows, blankItem()]);
@@ -72,7 +79,7 @@ export default function OrderModal({
     <div className="overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div className="modal modal-lg">
         <div className="modal-head">
-          <h3>เพิ่มใบสั่งขาย</h3>
+          <h3>{isEdit ? `แก้ไขใบสั่งขาย · ${order!.order_no}` : 'เพิ่มใบสั่งขาย'}</h3>
           <button className="close-x" onClick={onClose}>×</button>
         </div>
         <form onSubmit={submit}>
@@ -164,7 +171,7 @@ export default function OrderModal({
           <div className="modal-foot">
             <button type="button" className="btn btn-ghost" onClick={onClose}>ยกเลิก</button>
             <button type="submit" className="btn btn-primary" disabled={saving}>
-              {saving ? 'กำลังบันทึก…' : `บันทึกใบสั่งขาย (${items.length} รายการ)`}
+              {saving ? 'กำลังบันทึก…' : isEdit ? `บันทึกการแก้ไข (${items.length} รายการ)` : `บันทึกใบสั่งขาย (${items.length} รายการ)`}
             </button>
           </div>
         </form>

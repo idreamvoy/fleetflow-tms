@@ -246,6 +246,59 @@ export const db = {
     return { ...(order as any), items, box_count } as Order;
   },
 
+  async updateOrder(id: number, input: NewOrder): Promise<void> {
+    const items: OrderItem[] = input.items.map((it, j) => ({
+      id: Date.now() + j,
+      collection: it.collection,
+      product_name: it.product_name,
+      qty: it.qty,
+      pieces_per_box: it.pieces_per_box,
+      boxes: boxesFor(it.qty, it.pieces_per_box),
+      note: it.note ?? '',
+    }));
+    const box_count = items.reduce((s, it) => s + it.boxes, 0);
+    if (!supabase) {
+      const zone = DEMO_ZONES.find((z) => z.id === input.zone_id) ?? null;
+      demoOrders = demoOrders.map((o) =>
+        o.id === id
+          ? {
+              ...o,
+              order_no: input.order_no,
+              customer_type: input.customer_type,
+              customer_name: input.customer_name,
+              delivery_location: input.delivery_location ?? o.delivery_location,
+              shipping_method: input.shipping_method,
+              zone_id: input.zone_id ?? null,
+              zone_name: zone?.name ?? o.zone_name,
+              status: input.status ?? o.status,
+              cod_amount: input.cod_amount ?? 0,
+              items,
+              box_count,
+            }
+          : o
+      );
+      return;
+    }
+    const { error } = await supabase
+      .from('orders')
+      .update({
+        order_no: input.order_no, customer_type: input.customer_type, customer_name: input.customer_name,
+        delivery_location: input.delivery_location, shipping_method: input.shipping_method,
+        zone_id: input.zone_id, status: input.status, cod_amount: input.cod_amount ?? 0,
+      })
+      .eq('id', id);
+    if (error) throw error;
+    await supabase.from('order_items').delete().eq('order_id', id);
+    if (items.length) {
+      await supabase.from('order_items').insert(
+        items.map((it) => ({
+          order_id: id, collection: it.collection, product_name: it.product_name,
+          qty: it.qty, pieces_per_box: it.pieces_per_box, boxes: it.boxes, note: it.note,
+        }))
+      );
+    }
+  },
+
   async updateOrderStatus(id: number, status: OrderStatus): Promise<void> {
     if (!supabase) {
       demoOrders = demoOrders.map((o) => (o.id === id ? { ...o, status } : o));
@@ -346,6 +399,17 @@ export const db = {
     const seq = trip ? trip.order_ids.length : 0;
     await supabase.from('trip_stops').insert({ trip_id: tripId, order_id: orderId, seq });
     await supabase.from('orders').update({ status: 'waiting_ship' }).eq('id', orderId);
+  },
+
+  // นำออเดอร์ออกจากเที่ยว (ยกเลิกการจัดรถ)
+  async unassignOrderFromTrip(orderId: number, tripId: number): Promise<void> {
+    if (!supabase) {
+      demoTrips = demoTrips.map((t) => (t.id === tripId ? { ...t, order_ids: t.order_ids.filter((id) => id !== orderId) } : t));
+      demoOrders = demoOrders.map((o) => (o.id === orderId ? { ...o, status: 'ready' as OrderStatus } : o));
+      return;
+    }
+    await supabase.from('trip_stops').delete().eq('trip_id', tripId).eq('order_id', orderId);
+    await supabase.from('orders').update({ status: 'ready' }).eq('id', orderId);
   },
 
   async getMovements(): Promise<StatusMovement[]> {

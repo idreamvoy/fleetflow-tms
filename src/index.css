@@ -183,9 +183,23 @@ code { font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 0.9em;
 .chip-count { font-weight: 700; opacity: 0.85; }
 
 /* ---------- Orders line-item table ---------- */
+.orders-toolbar { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+/* ตารางแบบกระชับ — พอดีจอเสมอ ไม่ต้องเลื่อนซ้ายขวา */
+.orders-table { table-layout: fixed; width: 100%; font-size: 13px; }
+.orders-table thead th { padding: 8px 6px; font-size: 11px; white-space: normal; text-transform: none; letter-spacing: 0; line-height: 1.25; }
+.orders-table tbody td { padding: 8px 6px; vertical-align: top; overflow-wrap: anywhere; word-break: break-word; }
+.orders-table .wrap-hard, .orders-table tbody td { word-break: break-word; }
 .orders-table td { border-bottom: 1px solid #f1f5f9; }
 .orders-table tr.order-end td { border-bottom: 2px solid var(--border); }
 .orders-table .cell-top { vertical-align: top; background: #fcfdff; }
+.orders-table .nowrap { white-space: nowrap; }
+.orders-table .num { text-align: center; white-space: nowrap; }
+.orders-table .num .sub { font-size: 10px; }
+.orders-table code { font-size: 12px; word-break: break-all; }
+.orders-table .status-select { width: 100%; min-width: 0; max-width: 100%; padding-left: 6px; padding-right: 6px; }
+.orders-table .mini-btn { padding: 4px 6px; font-size: 11px; }
+.orders-table td { overflow: hidden; }
+.col-tag { display: inline-block; font-size: 10px; font-weight: 600; color: var(--indigo); background: #eef2ff; border-radius: 5px; padding: 1px 6px; margin-bottom: 3px; }
 .type-tag { display: inline-block; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 6px; }
 .type-tag.hotel { background: #eef2ff; color: #6366f1; }
 .type-tag.hospital { background: #ecfeff; color: #0891b2; }
@@ -289,12 +303,36 @@ table.data tbody tr:last-child td { border-bottom: none; }
 
 /* ---------- Planning ---------- */
 .zone-pill { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 6px; background: #f1f5f9; color: var(--text-2); }
+.filter-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 16px; }
+.filter-label { font-weight: 600; color: var(--text-2); }
+.card-scroll { padding: 16px; display: flex; flex-direction: column; gap: 12px; max-height: 620px; overflow-y: auto; }
+.trip-toolbar { display: flex; align-items: center; gap: 10px; margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--border); }
+.trip-carrier { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: var(--text-2); }
+.trip-carrier select { padding: 6px 8px; border: 1px solid var(--border); border-radius: 8px; font-size: 13px; background: #fff; }
+.trip-toolbar .btn { margin-left: auto; padding: 7px 12px; }
+.stop-remove { width: 28px; height: 28px; border-radius: 8px; background: #fff; border: 1px solid var(--border); color: var(--rose); font-size: 18px; flex-shrink: 0; }
+.stop-remove:hover:not(:disabled) { background: #ffe4e6; }
+.stop-remove:disabled { opacity: 0.4; }
 .wait-card { display: flex; gap: 12px; border: 1px solid var(--border); border-radius: 12px; padding: 12px; background: #fff; }
 .plan-trip { border: 1px solid var(--border); border-radius: 14px; padding: 14px; background: #fff; cursor: pointer; transition: all 0.15s; }
 .plan-trip:hover { border-color: var(--indigo); }
 .plan-trip.active { border-color: var(--indigo); box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12); }
 .plan-stop { display: flex; align-items: center; gap: 10px; background: #f8fafc; border-radius: 10px; padding: 10px; }
 .carrier-select { padding: 7px 10px; border: 1px solid var(--border); border-radius: 8px; font-size: 13px; background: #fff; max-width: 140px; }
+
+/* ---------- Dashboard: delivery calendar ---------- */
+.cal-pad { padding: 16px; }
+.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+.cal-head { margin-bottom: 6px; }
+.cal-dow { text-align: center; font-size: 12px; font-weight: 700; color: var(--text-2); padding: 4px; }
+.cal-cell { min-height: 76px; border: 1px solid var(--border); border-radius: 10px; padding: 6px; background: #fff; overflow: hidden; }
+.cal-cell.empty { border: none; background: transparent; }
+.cal-cell.today { border-color: var(--indigo); box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.15); }
+.cal-cell.has { background: #f8faff; }
+.cal-day { font-weight: 700; font-size: 13px; }
+.cal-info { display: flex; flex-direction: column; gap: 3px; margin-top: 4px; }
+.cal-badge { font-size: 11px; font-weight: 600; background: var(--indigo); color: #fff; border-radius: 6px; padding: 2px 5px; text-align: center; }
+.cal-boxes { font-size: 10px; color: var(--text-2); text-align: center; }
 
 /* ---------- Tracking: vehicle status ---------- */
 .map-panel { background: linear-gradient(135deg, #eef2ff, #cffafe); border-radius: 14px; height: 220px; position: relative; overflow: hidden; display: grid; place-items: center; margin-bottom: 16px; }
@@ -372,6 +410,9 @@ table.data tbody tr:last-child td { border-bottom: none; }
   .kpi-grid { grid-template-columns: 1fr; }
   .modal-body { grid-template-columns: 1fr; }
   .item-grid { grid-template-columns: 1fr 1fr; }
+  .cal-cell { min-height: 54px; padding: 4px; }
+  .cal-badge { font-size: 9px; padding: 1px 3px; }
+  .cal-boxes { display: none; }
   .search { display: none; }
   .content { padding: 16px; }
   .kpi-grid[style] { grid-template-columns: repeat(2, 1fr) !important; }

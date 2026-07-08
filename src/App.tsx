@@ -8,12 +8,11 @@ import Tracking from './pages/Tracking';
 import DriverApp from './pages/DriverApp';
 import Reports from './pages/Reports';
 import OrderModal from './components/OrderModal';
-import { IconGrid, IconCalendar } from './components/icons';
 import { db, IS_SUPABASE_CONFIGURED } from './lib/supabase';
 import type { Order, Zone, Driver, Trip, StatusMovement, NewOrder, OrderStatus } from './lib/types';
 
 const PAGE_META: Record<PageKey, { title: string; subtitle: string }> = {
-  dashboard: { title: 'ภาพรวมระบบ', subtitle: 'Dashboard · ศูนย์ควบคุมการจัดส่ง' },
+  dashboard: { title: 'Dashboard', subtitle: 'ภาพรวมระบบ · ศูนย์ควบคุมการจัดส่ง' },
   planning: { title: 'วางแผนจัดส่ง', subtitle: 'Planning · จัดรถและเส้นทาง' },
   orders: { title: 'จัดการออเดอร์', subtitle: 'Orders · คีย์ออเดอร์ ดูรายละเอียด เปลี่ยนสถานะ' },
   driver: { title: 'Driver App', subtitle: 'งานของคนขับ · เลือกวัน นำทาง และยืนยันการส่ง' },
@@ -31,6 +30,7 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [showModal, setShowModal] = useState(false);
+  const [editingOrder, setEditingOrder] = useState<Order | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [navOpen, setNavOpen] = useState(false);
 
@@ -59,11 +59,31 @@ export default function App() {
     setNavOpen(false);
   }
 
-  async function handleAddOrder(o: NewOrder) {
-    await db.addOrder(o);
-    await loadAll();
+  function openAdd() {
+    setEditingOrder(null);
+    setShowModal(true);
+  }
+  function openEdit(order: Order) {
+    setEditingOrder(order);
+    setShowModal(true);
+  }
+  function closeModal() {
     setShowModal(false);
-    flash('เพิ่มออเดอร์สำเร็จ ✓');
+    setEditingOrder(null);
+  }
+
+  async function handleSaveOrder(o: NewOrder) {
+    if (editingOrder) {
+      await db.updateOrder(editingOrder.id, o);
+      await loadAll();
+      closeModal();
+      flash('บันทึกการแก้ไขแล้ว ✓');
+    } else {
+      await db.addOrder(o);
+      await loadAll();
+      closeModal();
+      flash('เพิ่มออเดอร์สำเร็จ ✓');
+    }
   }
 
   async function handleStatusChange(id: number, status: OrderStatus) {
@@ -78,16 +98,16 @@ export default function App() {
     flash('ลบใบสั่งขายแล้ว');
   }
 
-  async function handleAddItem(id: number) {
-    await db.addOrderItem(id, { collection: 'Hotel Premium', product_name: 'ผ้าปูที่นอน 6 ฟุต', qty: 24, pieces_per_box: 6 });
-    await loadAll();
-    flash('เพิ่มรายการสินค้าแล้ว ✓');
-  }
-
   async function handleAssign(orderId: number, tripId: number) {
     await db.assignOrderToTrip(orderId, tripId);
     await loadAll();
     flash(`จัดเข้าเที่ยว TR-${String(tripId).padStart(2, '0')} แล้ว ✓`);
+  }
+
+  async function handleUnassign(orderId: number, tripId: number) {
+    await db.unassignOrderFromTrip(orderId, tripId);
+    await loadAll();
+    flash(`นำออกจาก TR-${String(tripId).padStart(2, '0')} แล้ว · กลับไปรอจัดรถ`);
   }
 
   async function handlePod(order: Order, status: OrderStatus, note: string, driverName: string) {
@@ -129,21 +149,14 @@ export default function App() {
         />
 
         <div className="content">
-          {page === 'dashboard' && (
-            <div className="tabs">
-              <button className="tab active"><IconGrid width={16} height={16} /> สรุปภาพรวม</button>
-              <button className="tab"><IconCalendar width={16} height={16} /> ปฏิทินจัดส่ง</button>
-            </div>
-          )}
-
           {loading ? (
             <div className="card"><div className="loading">กำลังโหลดข้อมูล…</div></div>
           ) : page === 'dashboard' ? (
             <Dashboard orders={orders} zones={zones} />
           ) : page === 'orders' ? (
-            <Orders orders={filteredOrders} onAdd={() => setShowModal(true)} onStatusChange={handleStatusChange} onDelete={handleDelete} onAddItem={handleAddItem} />
+            <Orders orders={filteredOrders} onAdd={openAdd} onEdit={openEdit} onStatusChange={handleStatusChange} onDelete={handleDelete} />
           ) : page === 'planning' ? (
-            <Planning orders={orders} trips={trips} onAssign={handleAssign} />
+            <Planning orders={orders} trips={trips} onAssign={handleAssign} onUnassign={handleUnassign} />
           ) : page === 'tracking' ? (
             <Tracking trips={trips} orders={orders} />
           ) : page === 'driver' ? (
@@ -154,7 +167,7 @@ export default function App() {
         </div>
       </div>
 
-      {showModal && <OrderModal zones={zones} onClose={() => setShowModal(false)} onSave={handleAddOrder} />}
+      {showModal && <OrderModal zones={zones} order={editingOrder} onClose={closeModal} onSave={handleSaveOrder} />}
 
       <div style={{ position: 'fixed', bottom: 20, right: 20, zIndex: 50 }}>
         <span className={`conn ${IS_SUPABASE_CONFIGURED ? 'live' : 'demo'}`}>

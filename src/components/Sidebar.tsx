@@ -10,7 +10,7 @@ interface NavDef {
 }
 
 const NAV: NavDef[] = [
-  { key: 'dashboard', label: 'ภาพรวม', icon: IconGrid },
+  { key: 'dashboard', label: 'Dashboard', icon: IconGrid },
   { key: 'planning', label: 'วางแผนจัดส่ง', icon: IconRoute, badge: 4 },
   { key: 'orders', label: 'ออเดอร์', icon: IconBox, badge: 3 },
   { key: 'driver', label: 'Driver app', icon: IconTruck },

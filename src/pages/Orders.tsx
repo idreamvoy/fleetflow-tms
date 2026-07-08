@@ -30,15 +30,15 @@ function exportCsv(orders: Order[]) {
 export default function Orders({
   orders,
   onAdd,
+  onEdit,
   onStatusChange,
   onDelete,
-  onAddItem,
 }: {
   orders: Order[];
   onAdd: () => void;
+  onEdit: (order: Order) => void;
   onStatusChange: (id: number, status: OrderStatus) => void;
   onDelete: (id: number) => void;
-  onAddItem: (id: number) => void;
 }) {
   const [tab, setTab] = useState<ShippingMethod>('company');
   const [statusFilter, setStatusFilter] = useState<OrderStatus | 'all'>('all');
@@ -54,7 +54,7 @@ export default function Orders({
 
   const chips: Array<{ key: OrderStatus | 'all'; label: string; color?: string }> = [
     { key: 'all', label: 'ทั้งหมด' },
-    ...STATUS_ORDER.map((s) => ({ key: s, label: s === 'oem' ? 'OEM // Made to order' : STATUS_LABEL[s], color: STATUS_COLOR[s] })),
+    ...STATUS_ORDER.map((s) => ({ key: s, label: s === 'oem' ? 'OEM' : STATUS_LABEL[s], color: STATUS_COLOR[s] })),
   ];
   const countFor = (k: OrderStatus | 'all') => (k === 'all' ? byTab.length : byTab.filter((o) => o.status === k).length);
 
@@ -63,7 +63,7 @@ export default function Orders({
   return (
     <>
       {/* Tabs + actions */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
+      <div className="orders-toolbar">
         <div className="tabs" style={{ marginBottom: 0 }}>
           <button className={`tab${tab === 'company' ? ' active' : ''}`} onClick={() => setTab('company')}>
             ขนส่งบริษัท <span className="tab-count">{companyCount}</span>
@@ -86,11 +86,7 @@ export default function Orders({
       <div className="chips">
         <span style={{ color: 'var(--text-2)', fontWeight: 600, alignSelf: 'center' }}>สถานะ:</span>
         {chips.map((c) => (
-          <button
-            key={c.key}
-            className={`chip${statusFilter === c.key ? ' active' : ''}`}
-            onClick={() => setStatusFilter(c.key)}
-          >
+          <button key={c.key} className={`chip${statusFilter === c.key ? ' active' : ''}`} onClick={() => setStatusFilter(c.key)}>
             {c.color && <span className="chip-dot" style={{ background: c.color }} />}
             {c.label}
             <span className="chip-count">{countFor(c.key)}</span>
@@ -111,62 +107,59 @@ export default function Orders({
           <table className="data orders-table">
             <thead>
               <tr>
-                <th>NO.</th>
-                <th>โรงแรม / โรงพยาบาล</th>
-                <th>เลขที่ใบสั่งงาน</th>
-                <th>Collection</th>
-                <th>รายการสินค้า</th>
-                <th>จำนวน</th>
-                <th>ชิ้น/กล่อง</th>
-                <th>กล่อง</th>
-                <th>สถานะ</th>
-                <th>หมายเหตุ</th>
-                <th>สถานที่ส่งสินค้า</th>
-                <th>กำหนดจัดส่ง</th>
-                <th></th>
+                <th style={{ width: 24 }}>#</th>
+                <th style={{ width: 108 }}>โรงแรม / โรงพยาบาล</th>
+                <th style={{ width: 84 }}>เลขที่ใบสั่งงาน</th>
+                <th style={{ width: 132 }}>รายการสินค้า</th>
+                <th style={{ width: 48 }}>จำนวน</th>
+                <th style={{ width: 40 }}>กล่อง</th>
+                <th style={{ width: 96 }}>สถานะ</th>
+                <th style={{ width: 108 }}>สถานที่ส่ง / กำหนด</th>
+                <th style={{ width: 72 }}></th>
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 ? (
-                <tr><td colSpan={13} className="loading">ไม่มีใบสั่งขายในหมวดนี้</td></tr>
+                <tr><td colSpan={9} className="loading">ไม่มีใบสั่งขายในหมวดนี้</td></tr>
               ) : (
                 filtered.map((o, idx) => (
                   o.items.map((it, j) => (
                     <tr key={`${o.id}-${it.id}`} className={j === o.items.length - 1 ? 'order-end' : ''}>
                       {j === 0 && <td rowSpan={o.items.length} className="cell-top">{idx + 1}</td>}
                       {j === 0 && (
-                        <td rowSpan={o.items.length} className="cell-top">
+                        <td rowSpan={o.items.length} className="cell-top wrap-hard">
                           <span className={`type-tag ${o.customer_type}`}>{o.customer_type === 'hotel' ? 'โรงแรม' : 'โรงพยาบาล'}</span>
                           <div style={{ fontWeight: 600, marginTop: 4 }}>{o.customer_name}</div>
                         </td>
                       )}
                       {j === 0 && <td rowSpan={o.items.length} className="cell-top"><code>{o.order_no}</code></td>}
-                      <td>{it.collection}</td>
-                      <td>{it.product_name}</td>
-                      <td>{it.qty.toLocaleString()}</td>
-                      <td>{it.pieces_per_box}</td>
-                      <td style={{ fontWeight: 600 }}>{it.boxes}</td>
+                      <td>
+                        <div className="col-tag">{it.collection}</div>
+                        <div>{it.product_name}</div>
+                        {it.note ? <div className="sub" style={{ color: '#f59e0b' }}>* {it.note}</div> : null}
+                      </td>
+                      <td className="num">{it.qty.toLocaleString()}<div className="sub">{it.pieces_per_box}/กล่อง</div></td>
+                      <td className="num" style={{ fontWeight: 700 }}>{it.boxes}</td>
                       {j === 0 && (
                         <td rowSpan={o.items.length} className="cell-top">
-                          <select
-                            className={`badge b-${o.status} status-select`}
-                            value={o.status}
-                            onChange={(e) => onStatusChange(o.id, e.target.value as OrderStatus)}
-                          >
+                          <select className={`badge b-${o.status} status-select`} value={o.status} onChange={(e) => onStatusChange(o.id, e.target.value as OrderStatus)}>
                             {STATUS_ORDER.map((s) => (
-                              <option key={s} value={s}>{s === 'oem' ? 'OEM // Made to order' : STATUS_LABEL[s]}</option>
+                              <option key={s} value={s}>{s === 'oem' ? 'OEM' : STATUS_LABEL[s]}</option>
                             ))}
                           </select>
                         </td>
                       )}
-                      <td className="sub" style={{ color: '#94a3b8' }}>{it.note || '—'}</td>
-                      {j === 0 && <td rowSpan={o.items.length} className="cell-top">{o.delivery_location}</td>}
-                      {j === 0 && <td rowSpan={o.items.length} className="cell-top">{o.ship_date}</td>}
+                      {j === 0 && (
+                        <td rowSpan={o.items.length} className="cell-top wrap-hard">
+                          <div>{o.delivery_location}</div>
+                          <div className="sub" style={{ color: '#94a3b8' }}>{o.ship_date}</div>
+                        </td>
+                      )}
                       {j === 0 && (
                         <td rowSpan={o.items.length} className="cell-top">
                           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                            <button className="mini-btn" onClick={() => onAddItem(o.id)}>+ รายการ</button>
-                            <button className="mini-btn danger" onClick={() => onDelete(o.id)}>ลบใบสั่ง</button>
+                            <button className="mini-btn" onClick={() => onEdit(o)}>แก้ไข</button>
+                            <button className="mini-btn danger" onClick={() => onDelete(o.id)}>ลบ</button>
                           </div>
                         </td>
                       )}
