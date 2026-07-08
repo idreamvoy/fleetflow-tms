@@ -1,9 +1,13 @@
 import { useState } from 'react';
-import type { NewOrder, Zone, OrderStatus, CustomerType, ShippingMethod, Collection } from '../lib/types';
+import type { NewOrder, NewOrderItem, Zone, OrderStatus, CustomerType, ShippingMethod, Collection } from '../lib/types';
 import { COLLECTIONS } from '../lib/types';
 import { STATUS_LABEL } from './badges';
+import { IconPlus } from './icons';
 
 const STATUS_OPTS: OrderStatus[] = ['unspecified', 'ready', 'waiting_ship', 'delivered', 'failed', 'cod_waiting', 'cod_transferred', 'oem'];
+
+type ItemRow = { collection: Collection; product_name: string; qty: number; pieces_per_box: number };
+const blankItem = (): ItemRow => ({ collection: 'Hotel Premium', product_name: '', qty: 24, pieces_per_box: 6 });
 
 export default function OrderModal({
   zones,
@@ -24,19 +28,29 @@ export default function OrderModal({
     zone_id: zones[0]?.id ?? 1,
     status: 'ready' as OrderStatus,
     cod_amount: 0,
-    // item
-    collection: 'Hotel Premium' as Collection,
-    product_name: '',
-    qty: 24,
-    pieces_per_box: 6,
   });
+  const [items, setItems] = useState<ItemRow[]>([blankItem()]);
   const set = (k: keyof typeof f, v: any) => setF((s) => ({ ...s, [k]: v }));
+
+  const addItem = () => setItems((rows) => [...rows, blankItem()]);
+  const removeItem = (i: number) => setItems((rows) => (rows.length > 1 ? rows.filter((_, j) => j !== i) : rows));
+  const setItem = (i: number, k: keyof ItemRow, v: any) =>
+    setItems((rows) => rows.map((r, j) => (j === i ? { ...r, [k]: v } : r)));
+
+  const boxesOf = (r: ItemRow) => Math.max(1, Math.ceil((Number(r.qty) || 0) / (Number(r.pieces_per_box) || 1)));
+  const totalBoxes = items.reduce((s, r) => s + boxesOf(r), 0);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!f.customer_name.trim() || !f.product_name.trim()) return;
+    if (!f.customer_name.trim() || items.some((r) => !r.product_name.trim())) return;
     setSaving(true);
     try {
+      const payloadItems: NewOrderItem[] = items.map((r) => ({
+        collection: r.collection,
+        product_name: r.product_name,
+        qty: Number(r.qty),
+        pieces_per_box: Number(r.pieces_per_box),
+      }));
       const order: NewOrder = {
         order_no: f.order_no,
         customer_type: f.customer_type,
@@ -46,7 +60,7 @@ export default function OrderModal({
         zone_id: f.zone_id,
         status: f.status,
         cod_amount: Number(f.cod_amount),
-        items: [{ collection: f.collection, product_name: f.product_name, qty: Number(f.qty), pieces_per_box: Number(f.pieces_per_box) }],
+        items: payloadItems,
       };
       await onSave(order);
     } finally {
@@ -56,7 +70,7 @@ export default function OrderModal({
 
   return (
     <div className="overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="modal">
+      <div className="modal modal-lg">
         <div className="modal-head">
           <h3>เพิ่มใบสั่งขาย</h3>
           <button className="close-x" onClick={onClose}>×</button>
@@ -105,33 +119,52 @@ export default function OrderModal({
               <label>ยอด COD (บาท)</label>
               <input type="number" min={0} value={f.cod_amount} onChange={(e) => set('cod_amount', e.target.value)} />
             </div>
-
-            <div className="field full" style={{ borderTop: '1px solid var(--border)', paddingTop: 12, marginTop: 4 }}>
-              <label style={{ fontWeight: 700, color: 'var(--text)' }}>รายการสินค้าแรก</label>
-            </div>
-            <div className="field">
-              <label>Collection</label>
-              <select value={f.collection} onChange={(e) => set('collection', e.target.value)}>
-                {COLLECTIONS.map((c) => <option key={c} value={c}>{c}</option>)}
-              </select>
-            </div>
-            <div className="field">
-              <label>ชื่อสินค้า *</label>
-              <input value={f.product_name} onChange={(e) => set('product_name', e.target.value)} placeholder="เช่น ผ้าปูที่นอน 6 ฟุต" required />
-            </div>
-            <div className="field">
-              <label>จำนวน (ชิ้น)</label>
-              <input type="number" min={1} value={f.qty} onChange={(e) => set('qty', e.target.value)} />
-            </div>
-            <div className="field">
-              <label>ชิ้น/กล่อง</label>
-              <input type="number" min={1} value={f.pieces_per_box} onChange={(e) => set('pieces_per_box', e.target.value)} />
-            </div>
           </div>
+
+          {/* รายการสินค้า (หลายรายการได้) */}
+          <div className="items-head">
+            <span>รายการสินค้า ({items.length})</span>
+            <span className="sub">รวม {totalBoxes} กล่อง</span>
+          </div>
+          <div className="items-list">
+            {items.map((r, i) => (
+              <div className="item-row" key={i}>
+                <div className="item-grid">
+                  <div className="field">
+                    <label>Collection</label>
+                    <select value={r.collection} onChange={(e) => setItem(i, 'collection', e.target.value)}>
+                      {COLLECTIONS.map((c) => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                  </div>
+                  <div className="field">
+                    <label>ชื่อสินค้า *</label>
+                    <input value={r.product_name} onChange={(e) => setItem(i, 'product_name', e.target.value)} placeholder="เช่น ผ้าปูที่นอน 6 ฟุต" required />
+                  </div>
+                  <div className="field">
+                    <label>จำนวน</label>
+                    <input type="number" min={1} value={r.qty} onChange={(e) => setItem(i, 'qty', e.target.value)} />
+                  </div>
+                  <div className="field">
+                    <label>ชิ้น/กล่อง</label>
+                    <input type="number" min={1} value={r.pieces_per_box} onChange={(e) => setItem(i, 'pieces_per_box', e.target.value)} />
+                  </div>
+                  <div className="field">
+                    <label>กล่อง</label>
+                    <input value={boxesOf(r)} disabled className="box-readonly" />
+                  </div>
+                </div>
+                <button type="button" className="item-remove" onClick={() => removeItem(i)} disabled={items.length === 1} title="ลบรายการ">×</button>
+              </div>
+            ))}
+          </div>
+          <button type="button" className="btn btn-ghost add-item-btn" onClick={addItem}>
+            <IconPlus /> เพิ่มรายการสินค้า
+          </button>
+
           <div className="modal-foot">
             <button type="button" className="btn btn-ghost" onClick={onClose}>ยกเลิก</button>
             <button type="submit" className="btn btn-primary" disabled={saving}>
-              {saving ? 'กำลังบันทึก…' : 'บันทึกใบสั่งขาย'}
+              {saving ? 'กำลังบันทึก…' : `บันทึกใบสั่งขาย (${items.length} รายการ)`}
             </button>
           </div>
         </form>

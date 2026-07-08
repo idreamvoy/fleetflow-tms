@@ -140,14 +140,14 @@ let historyId = 1;
 
 // บันทึกความเคลื่อนไหวสถานะตัวอย่าง (หน้ารายงาน)
 const demoMovements: StatusMovement[] = [
-  { id: 1, time: '10:05', order_no: 'SO-6907-016', from_label: 'กำลังส่ง', to_label: 'ส่งสำเร็จ', by: 'สมชาย ก.' },
+  { id: 1, time: '10:05', order_no: 'SO-6907-011', from_label: 'กำลังส่ง', to_label: 'ส่งสำเร็จ', by: 'สมชาย ก.' },
   { id: 2, time: '09:40', order_no: 'SO-6907-005', from_label: 'พร้อมส่ง', to_label: 'กำลังส่ง', by: 'วิรัช ม.' },
-  { id: 3, time: '09:15', order_no: 'SO-6907-015', from_label: 'กำลังส่ง', to_label: 'ส่งสำเร็จ', by: 'ธนา พ.' },
-  { id: 4, time: '09:12', order_no: 'SO-6907-020', from_label: 'กำหนดส่ง', to_label: 'เลยกำหนด', by: 'ระบบ' },
-  { id: 5, time: '08:50', order_no: 'SO-6907-013', from_label: 'พร้อมส่ง', to_label: 'กำหนดส่ง', by: 'ผู้จัดการ' },
+  { id: 3, time: '09:15', order_no: 'SO-6907-007', from_label: 'พร้อมส่ง', to_label: 'รอส่ง', by: 'ธนา พ.' },
+  { id: 4, time: '09:12', order_no: 'SO-6907-005', from_label: 'กำหนดส่ง', to_label: 'ค้างส่ง', by: 'ระบบ' },
+  { id: 5, time: '08:50', order_no: 'SO-6907-003', from_label: 'พร้อมส่ง', to_label: 'รอโอน', by: 'ผู้จัดการ' },
   { id: 6, time: '08:20', order_no: 'SO-6907-006', from_label: 'รับเข้า', to_label: 'พร้อมส่ง', by: 'คลังสินค้า' },
-  { id: 7, time: '08:05', order_no: 'SO-6907-018', from_label: 'กำหนดส่ง', to_label: 'ค้างส่ง', by: 'ระบบ' },
-  { id: 8, time: '07:50', order_no: 'SO-6907-001', from_label: 'พร้อมส่ง', to_label: 'กำลังส่ง', by: 'สมชาย ก.' },
+  { id: 7, time: '08:05', order_no: 'SO-6907-012', from_label: 'รับเข้า', to_label: 'OEM', by: 'ระบบ' },
+  { id: 8, time: '07:50', order_no: 'SO-6907-001', from_label: 'รับเข้า', to_label: 'พร้อมส่ง', by: 'คลังสินค้า' },
 ];
 
 function estimateDistance(orderCount: number, zoneId: number | null): number {

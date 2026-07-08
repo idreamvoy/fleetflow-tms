@@ -134,19 +134,53 @@ INSERT INTO drivers (name, phone, vehicle, is_online) VALUES
   ('ประยุทธ ส.', '084-444-4444', 'สค-2210', false);
 
 INSERT INTO orders (order_no, customer_type, customer_name, delivery_location, shipping_method, zone_id, status, cod_amount, ship_date) VALUES
-  ('SO-6907-001', 'hotel',    'โรงแรมดุสิตธานี',      '88/8 หมู่ 7 ต.วัดจันทร์ อ.เมืองพิษณุโลก', 'company', 1, 'ready',           0,    current_date),
-  ('SO-6907-002', 'hotel',    'โรงแรมเดอะสุโกศล',     'ราชเทวี กทม.',                          'company', 1, 'waiting_ship',    0,    current_date),
-  ('SO-6907-003', 'hospital', 'รพ.บำรุงราษฎร์',       '33 ถ.สุขุมวิท เขตวัฒนา กทม.',           'company', 1, 'cod_waiting',     4200, current_date),
+  ('SO-6907-001', 'hotel',    'โรงแรมดุสิตธานี',      '88/8 หมู่ 7 ต.วัดจันทร์ อ.เมืองพิษณุโลก', 'company',  1, 'ready',           0,    current_date),
+  ('SO-6907-002', 'hotel',    'โรงแรมเดอะสุโกศล',     'ราชเทวี กทม.',                          'company',  1, 'ready',           0,    current_date),
+  ('SO-6907-003', 'hospital', 'รพ.บำรุงราษฎร์',       '33 ถ.สุขุมวิท เขตวัฒนา กทม.',           'company',  1, 'cod_waiting',     4200, current_date),
   ('SO-6907-004', 'hotel',    'โรงแรมเซ็นทาราแกรนด์', 'เขตปทุมวัน กทม.',                       'shipping', 2, 'cod_transferred', 3800, current_date),
-  ('SO-6907-005', 'hospital', 'รพ.ศิริราช',           'เขตบางกอกน้อย กทม.',                    'company', 1, 'failed',          0,    current_date);
+  ('SO-6907-005', 'hospital', 'รพ.ศิริราช',           'เขตบางกอกน้อย กทม.',                    'company',  1, 'failed',          0,    current_date),
+  ('SO-6907-006', 'hotel',    'โรงแรมอนันตรา สยาม',   'ปทุมวัน กทม.',                          'company',  1, 'ready',           0,    current_date),
+  ('SO-6907-007', 'hospital', 'รพ.กรุงเทพ',           'ห้วยขวาง กทม.',                         'company',  1, 'waiting_ship',    0,    current_date),
+  ('SO-6907-008', 'hotel',    'โรงแรมพูลแมน',         'อ.เมือง ขอนแก่น',                       'shipping', 2, 'cod_waiting',     5100, current_date),
+  ('SO-6907-009', 'hotel',    'โรงแรมพัทยามารีน',     'บางละมุง ชลบุรี',                       'shipping', 2, 'ready',           0,    current_date),
+  ('SO-6907-010', 'hospital', 'รพ.ระยอง',             'อ.เมือง ระยอง',                         'shipping', 2, 'unspecified',     0,    current_date),
+  ('SO-6907-011', 'hotel',    'โรงแรมแชงกรี-ลา',      'บางรัก กทม.',                           'company',  1, 'delivered',       0,    current_date),
+  ('SO-6907-012', 'hospital', 'รพ.สมิติเวช',          'วัฒนา กทม.',                            'company',  1, 'oem',             0,    current_date);
 
 INSERT INTO order_items (order_id, collection, product_name, qty, pieces_per_box, boxes, note) VALUES
-  (1, 'Hotel Premium', 'ผ้าปูที่นอน 6 ฟุต', 24, 6, 4, ''),
-  (1, 'Spa & Bath',    'ผ้าเช็ดตัว 27x54',   40, 10, 4, ''),
-  (2, 'Banquet Line',  'ผ้าปูโต๊ะกลม',       20, 5, 4, 'ด่วน'),
-  (3, 'Medical Care',  'ชุดผู้ป่วย ไซส์ L',  60, 6, 10, ''),
-  (4, 'Housekeeping',  'ปลอกหมอน',           38, 10, 4, ''),
-  (5, 'Patient Series','ผ้าห่มผู้ป่วย',      16, 4, 4, '');
+  (1,  'Hotel Premium',  'ผ้าปูที่นอน 6 ฟุต',  240, 6,  40, ''),
+  (1,  'Spa & Bath',     'ผ้าเช็ดตัว 27x54',    40, 10,  4, ''),
+  (2,  'Banquet Line',   'ผ้าปูโต๊ะกลม',        20, 5,   4, 'ด่วน'),
+  (3,  'Medical Care',   'ชุดผู้ป่วย ไซส์ L',   120, 6, 20, ''),
+  (4,  'Housekeeping',   'ปลอกหมอน',            380, 10, 38, ''),
+  (5,  'Patient Series', 'ผ้าห่มผู้ป่วย',        16, 4,   4, ''),
+  (6,  'Housekeeping',   'ปลอกหมอน',            160, 10, 16, ''),
+  (7,  'Hotel Premium',  'ผ้าคลุมเตียงผู้ป่วย', 150, 5,  30, ''),
+  (7,  'Spa & Bath',     'ผ้าเช็ดหน้า 13x13',   80, 8,  10, ''),
+  (8,  'Spa & Bath',     'เสื้อคลุมอาบน้ำ',      50, 5,  10, ''),
+  (9,  'Hotel Premium',  'ผ้าปูที่นอน 5 ฟุต',   130, 10, 13, ''),
+  (10, 'Medical Care',   'ชุดผู้ป่วย ไซส์ M',   190, 10, 19, ''),
+  (11, 'Banquet Line',   'ผ้าแนพกิ้น',          200, 20, 10, ''),
+  (12, 'Patient Series', 'ผ้ารองเตียงผู้ป่วย',  144, 6,  24, 'OEM สั่งผลิต');
+
+-- ---------- รอบจัดส่ง (trips) + จุดส่ง (trip_stops) ----------
+INSERT INTO trips (trip_date, driver_id, zone_id, status, vehicle_type, capacity_boxes, distance_km, progress, eta) VALUES
+  (current_date, 1, 1, 'in_progress', 'รถ 4 ล้อ', 120, 42.5, 62, '12:10'),
+  (current_date, 2, 2, 'in_progress', 'รถ 6 ล้อ', 250, 128.0, 34, '16:40'),
+  (current_date, 3, 1, 'assigned',    'รถ 4 ล้อ', 120, 30.0, 0,  'พรุ่งนี้'),
+  (current_date, 4, 2, 'planning',    'รถ 6 ล้อ', 250, 95.0, 0,  'พรุ่งนี้');
+
+INSERT INTO trip_stops (trip_id, order_id, seq) VALUES
+  (1, 1, 0), (1, 2, 1), (1, 7, 2),
+  (2, 4, 0), (2, 8, 1),
+  (3, 3, 0), (3, 5, 1),
+  (4, 10, 0);
+
+-- ---------- ประวัติสถานะ (status_history) ----------
+INSERT INTO status_history (order_id, status, note, by_driver) VALUES
+  (11, 'delivered', 'ส่งครบ', 1),
+  (5,  'failed',    'ลูกค้าไม่รับสาย', 2),
+  (1,  'ready',     'พร้อมจัดรถ', NULL);
 
 -- ============================================================
 -- Row Level Security (โหมด Demo — เปิดให้ทดลอง)

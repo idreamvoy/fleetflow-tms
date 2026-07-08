@@ -272,6 +272,21 @@ table.data tbody tr:last-child td { border-bottom: none; }
 .close-x { width: 32px; height: 32px; border-radius: 8px; display: grid; place-items: center; color: var(--text-2); font-size: 22px; }
 .close-x:hover { background: #f1f5f9; }
 
+/* ---------- Multi-item order modal ---------- */
+.modal-lg { max-width: 760px; }
+.items-head { display: flex; justify-content: space-between; align-items: center; padding: 4px 24px 8px; margin-top: 4px; border-top: 1px solid var(--border); padding-top: 14px; font-weight: 700; }
+.items-list { padding: 0 24px; display: flex; flex-direction: column; gap: 10px; }
+.item-row { display: flex; align-items: flex-start; gap: 10px; background: #f8fafc; border: 1px solid var(--border); border-radius: 12px; padding: 12px; }
+.item-grid { flex: 1; min-width: 0; display: grid; grid-template-columns: 1.3fr 1.8fr 0.9fr 0.9fr 0.8fr; gap: 10px; }
+.item-grid .field { min-width: 0; }
+.item-grid .field label { font-size: 11px; }
+.item-grid .field input, .item-grid .field select { padding: 8px 10px; font-size: 13px; min-width: 0; width: 100%; }
+.box-readonly { background: #eef2ff !important; color: var(--indigo); font-weight: 700; text-align: center; }
+.item-remove { width: 30px; height: 30px; border-radius: 8px; background: #fff; border: 1px solid var(--border); color: var(--rose); font-size: 20px; flex-shrink: 0; margin-top: 18px; }
+.item-remove:hover:not(:disabled) { background: #ffe4e6; }
+.item-remove:disabled { opacity: 0.3; cursor: not-allowed; }
+.add-item-btn { margin: 12px 24px 0; }
+
 /* ---------- Planning ---------- */
 .zone-pill { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 6px; background: #f1f5f9; color: var(--text-2); }
 .wait-card { display: flex; gap: 12px; border: 1px solid var(--border); border-radius: 12px; padding: 12px; background: #fff; }
@@ -356,6 +371,7 @@ table.data tbody tr:last-child td { border-bottom: none; }
   .nav-scrim { display: block; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.5); z-index: 110; }
   .kpi-grid { grid-template-columns: 1fr; }
   .modal-body { grid-template-columns: 1fr; }
+  .item-grid { grid-template-columns: 1fr 1fr; }
   .search { display: none; }
   .content { padding: 16px; }
   .kpi-grid[style] { grid-template-columns: repeat(2, 1fr) !important; }
