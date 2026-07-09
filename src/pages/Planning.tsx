@@ -3,6 +3,7 @@ import type { Order, Trip, OrderStatus } from '../lib/types';
 import { CARRIERS, TRIP_STATUS_LABEL } from '../lib/types';
 import { IconRoute, IconPin, IconTruck, IconBox } from '../components/icons';
 import OrderDetail from '../components/OrderDetail';
+import MapModal from '../components/MapModal';
 import { geocode, optimizeOrder, routePlan, fmtClock, fmtDuration, WAREHOUSE, haversine } from '../lib/geo';
 
 const WAREHOUSE_ORIGIN = `${WAREHOUSE.lat},${WAREHOUSE.lng}`; // คลังเนเจอร์ทัช
@@ -31,6 +32,8 @@ export default function Planning({
   const [detail, setDetail] = useState<Order | null>(null);
   const [day, setDay] = useState<string>('all');
   const [dragIdx, setDragIdx] = useState<number | null>(null);
+  const [mapTrip, setMapTrip] = useState<Trip | null>(null);
+  const [sortByDistance, setSortByDistance] = useState(false);
 
   const stopsOf = (t: Trip) => t.order_ids.map((id) => orders.find((o) => o.id === id)).filter(Boolean) as Order[];
   const usedBoxes = (t: Trip) => stopsOf(t).reduce((s, o) => s + o.box_count, 0);
@@ -62,8 +65,17 @@ export default function Planning({
     unassigned.forEach((o) => o.ship_date && s.add(o.ship_date));
     return Array.from(s).sort();
   }, [unassigned]);
-  const shown = day === 'all' ? unassigned : unassigned.filter((o) => o.ship_date === day);
   const fmtDay = (d: string) => new Date(d).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' });
+
+  // ---- distance from warehouse ----
+  const getDistance = (o: Order): number => {
+    const pt = geocode(o.delivery_location, o.zone_id);
+    return Math.round(haversine(WAREHOUSE, pt) * 10) / 10;
+  };
+
+  // ---- sort by distance if needed ----
+  let filteredOrders = day === 'all' ? unassigned : unassigned.filter((o) => o.ship_date === day);
+  const shown = sortByDistance ? [...filteredOrders].sort((a, b) => getDistance(a) - getDistance(b)) : filteredOrders;
 
   // ---- actions ----
   const assign = async (orderId: number, tripId: number) => {
@@ -125,7 +137,7 @@ export default function Planning({
         </div>
       </div>
 
-      {/* ฟิลเตอร์วันกำหนดจัดส่ง */}
+      {/* ฟิลเตอร์วันกำหนดจัดส่ง + เรียงตามระยะ */}
       <div className="filter-bar">
         <span className="filter-label">กำหนดจัดส่ง:</span>
         <button className={`chip${day === 'all' ? ' active' : ''}`} onClick={() => setDay('all')}>
@@ -136,6 +148,15 @@ export default function Planning({
             {fmtDay(d)} <span className="chip-count">{unassigned.filter((o) => o.ship_date === d).length}</span>
           </button>
         ))}
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
+          <button
+            className={`btn btn-ghost xs${sortByDistance ? ' active' : ''}`}
+            onClick={() => setSortByDistance(!sortByDistance)}
+            title="เรียงตามระยะห่างจากคลัง"
+          >
+            📍 เรียงตามระยะ
+          </button>
+        </div>
       </div>
 
       <div className="grid-2">
@@ -160,6 +181,7 @@ export default function Planning({
                       <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 2, flexWrap: 'wrap' }}>
                         <code>{o.order_no}</code>
                         <span className="zone-pill">{o.zone_id === 1 ? 'กทม.' : 'ต่างจังหวัด'}</span>
+                        <span style={{ fontSize: '12px', color: '#64748b', background: '#f1f5f9', padding: '2px 8px', borderRadius: 4 }}>📍 {getDistance(o)} กม.</span>
                         {isUrgent(o) && <span className="warn-tag urgent">🔥 ด่วน</span>}
                       </div>
                       <div style={{ fontWeight: 600 }}>{o.customer_name}</div>
@@ -222,7 +244,7 @@ export default function Planning({
                     </div>
                   </div>
 
-                  {/* toolbar: ขนส่ง + คำนวณ + จัดลำดับ */}
+                  {/* toolbar: ขนส่ง + คำนวณ + จัดลำดับ + แผนที่ */}
                   <div className="trip-toolbar" onClick={(e) => e.stopPropagation()}>
                     <label className="trip-carrier">
                       <span>ขนส่ง</span>
@@ -233,7 +255,10 @@ export default function Planning({
                     <button className="btn btn-ghost xs" disabled={stops.length < 2} onClick={() => optimize(t)} title="จัดลำดับจุดส่งให้สั้นที่สุด">
                       <IconRoute width={15} height={15} /> จัดลำดับอัตโนมัติ
                     </button>
-                    <button className="btn btn-ghost xs" disabled={!stops.length} onClick={() => openMaps(t)}>แผนที่</button>
+                    <button className="btn btn-primary xs" disabled={!stops.length} onClick={() => setMapTrip(t)} title="ดูแผนที่เส้นทาง">
+                      🗺️ ดูแผนที่
+                    </button>
+                    <button className="btn btn-ghost xs" disabled={!stops.length} onClick={() => openMaps(t)}>Google Maps</button>
                   </div>
 
                   {active && (
@@ -296,6 +321,8 @@ export default function Planning({
       </div>
 
       <OrderDetail order={detail} onClose={() => setDetail(null)} />
+
+      {mapTrip && <MapModal orders={orders} trip={mapTrip} onClose={() => setMapTrip(null)} />}
     </>
   );
 }
