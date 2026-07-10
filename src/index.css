@@ -390,12 +390,51 @@ table.data tbody tr:last-child td { border-bottom: none; }
 .load-bar { height: 6px; border-radius: 3px; background: #f1f5f9; overflow: hidden; margin: 5px 0 3px; }
 .load-bar > div { height: 100%; border-radius: 3px; }
 
-/* route summary + ETA */
-.route-summary { display: flex; gap: 8px; margin-top: 12px; background: #f8faff; border: 1px solid #e0e7ff; border-radius: 10px; padding: 10px; }
-.route-summary > div { flex: 1; text-align: center; }
-.rs-label { display: block; font-size: 11px; color: var(--text-2); }
-.rs-val { display: block; font-weight: 700; font-size: 14px; color: var(--indigo); }
+/* route summary + ETA (3 stat tiles) */
+.route-summary { display: flex; gap: 8px; margin-top: 12px; }
+.route-summary > div { flex: 1; text-align: center; background: #f8faff; border: 1px solid #e0e7ff; border-radius: 10px; padding: 8px 6px; }
+.rs-label { display: block; font-size: 11px; color: var(--text-2); margin-top: 2px; }
+.rs-val { display: block; font-weight: 800; font-size: 16px; color: var(--indigo); }
 .stop-eta { font-size: 11px; color: var(--cyan); font-weight: 600; margin-top: 2px; }
+
+/* Hero: ความคืบหน้าการวางแผน */
+.plan-hero { display: flex; align-items: center; gap: 16px; background: #fff; border: 1px solid var(--border); border-radius: 14px; padding: 14px 18px; margin-bottom: 14px; }
+.plan-hero-ico { width: 48px; height: 48px; border-radius: 50%; background: #eef2ff; color: var(--indigo); display: grid; place-items: center; flex-shrink: 0; }
+.plan-hero-body { flex: 1; min-width: 0; }
+.plan-hero-top { display: flex; align-items: baseline; gap: 10px; margin-bottom: 7px; flex-wrap: wrap; }
+.plan-hero-title { font-size: 16px; font-weight: 700; color: var(--text); }
+.plan-hero-sub { font-size: 13px; color: var(--text-2); }
+.plan-hero-bar { height: 8px; border-radius: 999px; background: #f1f5f9; overflow: hidden; }
+.plan-hero-bar > div { height: 100%; border-radius: 999px; background: var(--indigo); transition: width 0.4s ease; }
+.plan-auto { white-space: nowrap; flex-shrink: 0; }
+
+/* Order card accent + hover */
+.wait-card { position: relative; overflow: hidden; transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s; }
+.wait-card:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(15, 23, 42, 0.07); border-color: var(--indigo); }
+.wait-accent { width: 4px; border-radius: 999px; flex-shrink: 0; align-self: stretch; }
+.wait-meta { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+.wait-chip { font-size: 11px; font-weight: 600; color: #64748b; background: #f1f5f9; border-radius: 6px; padding: 3px 8px; }
+.wait-chip.rec { color: var(--indigo); background: #eef2ff; }
+.wait-chip.warn { color: var(--rose); background: #ffe4e6; }
+
+/* Trip: capacity gauge */
+.plan-trip-head { display: flex; align-items: flex-start; gap: 12px; }
+.cap-gauge { position: relative; width: 52px; height: 52px; flex-shrink: 0; }
+.cap-gauge svg { width: 52px; height: 52px; }
+.cap-gauge-val { position: absolute; inset: 0; display: grid; place-items: center; font-size: 13px; font-weight: 800; color: var(--text); }
+.cap-note { font-size: 12px; margin-top: 4px; }
+
+/* Trip: route timeline */
+.trip-timeline { margin-top: 12px; }
+.tl-stop { position: relative; display: flex; gap: 12px; padding-bottom: 14px; }
+.tl-stop:not(:last-child)::before { content: ''; position: absolute; left: 10px; top: 24px; bottom: 2px; width: 2px; background: #e2e8f0; }
+.tl-dot { width: 22px; height: 22px; border-radius: 50%; background: var(--indigo); color: #fff; display: grid; place-items: center; font-size: 12px; font-weight: 700; flex-shrink: 0; position: relative; z-index: 1; cursor: grab; }
+.tl-stop.dragging { opacity: 0.4; }
+.tl-stop.dragging .tl-dot { cursor: grabbing; }
+
+/* Empty state */
+.empty-plan { text-align: center; padding: 30px 16px; color: var(--text-2); }
+.empty-plan-ico { width: 60px; height: 60px; border-radius: 50%; background: #f0fdf4; color: #10b981; display: grid; place-items: center; margin: 0 auto 12px; }
 .plan-stop.drag { cursor: grab; }
 .plan-stop.drag:active { cursor: grabbing; }
 .plan-stop.dragging { opacity: 0.4; border: 1px dashed var(--indigo); }
@@ -527,6 +566,10 @@ table.data tbody tr:last-child td { border-bottom: none; }
   .modal-body { grid-template-columns: 1fr; }
   .item-grid { grid-template-columns: 1fr 1fr; }
   .plan-summary { grid-template-columns: 1fr; }
+  .plan-hero { flex-wrap: wrap; }
+  .plan-hero-ico { display: none; }
+  .plan-hero-body { flex-basis: 100%; order: 1; }
+  .plan-auto { width: 100%; order: 2; }
   .drawer { width: 100%; }
   .pod-grid { grid-template-columns: 1fr; }
   .pod-item { flex-wrap: wrap; }
