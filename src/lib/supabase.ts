@@ -324,6 +324,7 @@ export const db = {
               zone_name: zone?.name ?? o.zone_name,
               status: input.status ?? o.status,
               cod_amount: input.cod_amount ?? 0,
+              ship_date: input.ship_date ?? null,
               items,
               box_count,
             }
@@ -337,6 +338,7 @@ export const db = {
         order_no: input.order_no, customer_type: input.customer_type, customer_name: input.customer_name,
         delivery_location: input.delivery_location, shipping_method: input.shipping_method,
         zone_id: input.zone_id, status: input.status, cod_amount: input.cod_amount ?? 0,
+        ship_date: input.ship_date ?? null,
       })
       .eq('id', id);
     if (error) throw error;

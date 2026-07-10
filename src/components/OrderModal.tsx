@@ -123,7 +123,11 @@ export default function OrderModal({
             </div>
             <div className="field">
               <label>กำหนดจัดส่ง <span className="sub" style={{ fontWeight: 400 }}>(ไม่ระบุก็ได้)</span></label>
-              <input type="date" value={f.ship_date} onChange={(e) => set('ship_date', e.target.value)} />
+              <div style={{ display: 'flex', gap: 6 }}>
+                <input type="date" value={f.ship_date} onChange={(e) => set('ship_date', e.target.value)} style={{ flex: 1 }} />
+                <button type="button" className="btn btn-ghost xs" onClick={() => set('ship_date', new Date().toLocaleDateString('sv-SE'))} title="ตั้งเป็นวันนี้">วันนี้</button>
+                {f.ship_date && <button type="button" className="btn btn-ghost xs" onClick={() => set('ship_date', '')} title="ล้างวันที่">×</button>}
+              </div>
             </div>
           </div>
 
