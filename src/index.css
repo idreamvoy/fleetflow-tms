@@ -409,7 +409,7 @@ table.data tbody tr:last-child td { border-bottom: none; }
 .plan-auto { white-space: nowrap; flex-shrink: 0; }
 
 /* Order card accent + hover */
-.wait-card { position: relative; overflow: hidden; transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s; }
+.wait-card { position: relative; align-items: stretch; transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s; }
 .wait-card:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(15, 23, 42, 0.07); border-color: var(--indigo); }
 .wait-accent { width: 4px; border-radius: 999px; flex-shrink: 0; align-self: stretch; }
 .wait-meta { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
