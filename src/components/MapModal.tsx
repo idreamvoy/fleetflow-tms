@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 import type { Order } from '../lib/types';
 import { geocode, WAREHOUSE, routePlan } from '../lib/geo';
 
@@ -67,34 +68,50 @@ export default function MapModal({
     ];
     L.polyline(routeCoords, { color: '#6366f1', weight: 3, opacity: 0.7 }).addTo(map);
 
-    // Fit bounds
-    map.fitBounds(bounds, { padding: [50, 50] });
-
-    return () => {
-      // cleanup on unmount
-    };
+    // Fit bounds + recalc ขนาดหลัง modal เปิด (กัน tiles เพี้ยน)
+    setTimeout(() => {
+      map.invalidateSize();
+      map.fitBounds(bounds, { padding: [50, 50] });
+    }, 100);
   }, [orders, trip]);
 
   return (
-    <div className="overlay" onClick={onClose} style={{ cursor: 'pointer' }}>
+    <div
+      onClick={onClose}
+      style={{
+        position: 'fixed',
+        inset: 0,
+        background: 'rgba(15, 23, 42, 0.5)',
+        backdropFilter: 'blur(4px)',
+        zIndex: 100,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 20,
+        cursor: 'pointer',
+      }}
+    >
       <div
         style={{
           width: '90vw',
           height: '80vh',
-          maxWidth: '1200px',
+          maxWidth: 1200,
           borderRadius: 12,
+          overflow: 'hidden',
           background: '#fff',
           boxShadow: '0 10px 40px rgba(0,0,0,0.2)',
           display: 'flex',
           flexDirection: 'column',
+          cursor: 'default',
         }}
         onClick={(e) => e.stopPropagation()}
       >
-        <div style={{ padding: '12px 16px', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ padding: '12px 16px', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
           <h3>แผนที่เส้นทาง</h3>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer' }}>×</button>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 22, cursor: 'pointer', lineHeight: 1 }}>×</button>
         </div>
-        <div ref={mapRef} style={{ flex: 1, borderRadius: '0 0 12px 12px' }} />
+        {/* map ต้องมีความสูงชัดเจน — ใช้ flex:1 + minHeight:0 กันยุบใน flex column */}
+        <div ref={mapRef} style={{ flex: 1, minHeight: 0, width: '100%' }} />
       </div>
     </div>
   );
