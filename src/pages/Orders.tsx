@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import type { Order, OrderStatus, ShippingMethod } from '../lib/types';
 import { STATUS_LABEL, STATUS_COLOR } from '../components/badges';
-import { IconPlus, IconDownload } from '../components/icons';
+import { IconPlus, IconDownload, IconUpload } from '../components/icons';
 
 const STATUS_ORDER: OrderStatus[] = [
   'unspecified', 'ready', 'waiting_ship', 'delivered', 'failed', 'cod_waiting', 'cod_transferred', 'oem',
@@ -30,12 +30,14 @@ function exportCsv(orders: Order[]) {
 export default function Orders({
   orders,
   onAdd,
+  onImport,
   onEdit,
   onStatusChange,
   onDelete,
 }: {
   orders: Order[];
   onAdd: () => void;
+  onImport: () => void;
   onEdit: (order: Order) => void;
   onStatusChange: (id: number, status: OrderStatus) => void;
   onDelete: (id: number) => void;
@@ -73,6 +75,9 @@ export default function Orders({
           </button>
         </div>
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 10 }}>
+          <button className="btn btn-ghost" onClick={onImport} title="นำเข้าออเดอร์จากไฟล์ Excel">
+            <IconUpload width={16} height={16} /> นำเข้า Excel
+          </button>
           <button className="btn btn-ghost" style={{ color: '#059669', borderColor: '#a7f3d0' }} onClick={() => exportCsv(filtered)}>
             <IconDownload width={16} height={16} /> ส่งออก Excel
           </button>

@@ -40,6 +40,9 @@ export const IconBell = (p: SVGProps<SVGSVGElement>) => (
 export const IconDownload = (p: SVGProps<SVGSVGElement>) => (
   <svg {...base({ width: 18, height: 18, ...p })}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><path d="M7 10l5 5 5-5M12 15V3" /></svg>
 );
+export const IconUpload = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base({ width: 18, height: 18, ...p })}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><path d="M7 9l5-5 5 5M12 4v12" /></svg>
+);
 export const IconPlus = (p: SVGProps<SVGSVGElement>) => (
   <svg {...base({ width: 18, height: 18, ...p })}><path d="M12 5v14M5 12h14" /></svg>
 );

@@ -9,6 +9,7 @@ import DriverApp from './pages/DriverApp';
 import Reports from './pages/Reports';
 import OrderModal from './components/OrderModal';
 import PodModal from './components/PodModal';
+import ImportModal from './components/ImportModal';
 import { db, IS_SUPABASE_CONFIGURED } from './lib/supabase';
 import type { Order, Zone, Driver, Trip, StatusMovement, StatusEvent, NewOrder, OrderStatus, PodInput } from './lib/types';
 
@@ -34,6 +35,7 @@ export default function App() {
   const [showModal, setShowModal] = useState(false);
   const [editingOrder, setEditingOrder] = useState<Order | null>(null);
   const [podTarget, setPodTarget] = useState<{ order: Order; trip: Trip } | null>(null);
+  const [showImport, setShowImport] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [navOpen, setNavOpen] = useState(false);
 
@@ -88,6 +90,16 @@ export default function App() {
       closeModal();
       flash('เพิ่มออเดอร์สำเร็จ ✓');
     }
+  }
+
+  async function handleImportOrders(newOrders: NewOrder[]) {
+    let ok = 0;
+    for (const o of newOrders) {
+      try { await db.addOrder(o); ok++; } catch (e) { console.error('import order', o.order_no, e); }
+    }
+    await loadAll();
+    setShowImport(false);
+    flash(ok === newOrders.length ? `นำเข้า ${ok} ออเดอร์สำเร็จ ✓` : `นำเข้าสำเร็จ ${ok}/${newOrders.length} ออเดอร์`);
   }
 
   async function handleStatusChange(id: number, status: OrderStatus) {
@@ -156,7 +168,7 @@ export default function App() {
         <Topbar
           title={meta.title}
           subtitle={meta.subtitle}
-          onImport={() => flash('นำเข้า Excel — เชื่อมต่อไฟล์จริงได้ในขั้นถัดไป')}
+          onImport={() => setShowImport(true)}
           onMenu={() => setNavOpen((v) => !v)}
           search={search}
           onSearch={setSearch}
@@ -168,7 +180,7 @@ export default function App() {
           ) : page === 'dashboard' ? (
             <Dashboard orders={orders} zones={zones} />
           ) : page === 'orders' ? (
-            <Orders orders={filteredOrders} onAdd={openAdd} onEdit={openEdit} onStatusChange={handleStatusChange} onDelete={handleDelete} />
+            <Orders orders={filteredOrders} onAdd={openAdd} onImport={() => setShowImport(true)} onEdit={openEdit} onStatusChange={handleStatusChange} onDelete={handleDelete} />
           ) : page === 'planning' ? (
             <Planning orders={orders} trips={trips} onAssign={handleAssign} onUnassign={handleUnassign} onReorder={handleReorder} />
           ) : page === 'tracking' ? (
@@ -182,6 +194,8 @@ export default function App() {
       </div>
 
       {showModal && <OrderModal zones={zones} order={editingOrder} onClose={closeModal} onSave={handleSaveOrder} />}
+
+      {showImport && <ImportModal zones={zones} onClose={() => setShowImport(false)} onImport={handleImportOrders} />}
 
       {podTarget && (
         <PodModal
