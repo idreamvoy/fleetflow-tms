@@ -168,7 +168,6 @@ export default function App() {
         <Topbar
           title={meta.title}
           subtitle={meta.subtitle}
-          onImport={() => setShowImport(true)}
           onMenu={() => setNavOpen((v) => !v)}
           search={search}
           onSearch={setSearch}

@@ -1,13 +1,12 @@
 import { useState } from 'react';
-import type { NewOrder, NewOrderItem, Order, Zone, OrderStatus, CustomerType, ShippingMethod, Collection } from '../lib/types';
-import { COLLECTIONS } from '../lib/types';
+import type { NewOrder, NewOrderItem, Order, Zone, OrderStatus, ShippingMethod } from '../lib/types';
 import { STATUS_LABEL } from './badges';
 import { IconPlus } from './icons';
 
 const STATUS_OPTS: OrderStatus[] = ['unspecified', 'ready', 'waiting_ship', 'delivered', 'failed', 'cod_waiting', 'cod_transferred', 'oem'];
 
-type ItemRow = { collection: Collection; product_name: string; qty: number; pieces_per_box: number };
-const blankItem = (): ItemRow => ({ collection: 'Hotel Premium', product_name: '', qty: 24, pieces_per_box: 6 });
+type ItemRow = { collection: string; product_name: string; qty: number; pieces_per_box: number; note: string };
+const blankItem = (): ItemRow => ({ collection: '', product_name: '', qty: 24, pieces_per_box: 6, note: '' });
 
 export default function OrderModal({
   zones,
@@ -21,20 +20,21 @@ export default function OrderModal({
   onSave: (o: NewOrder) => Promise<void>;
 }) {
   const isEdit = !!order;
+  const custType = order?.customer_type ?? 'hotel'; // ตัดฟิลด์เลือกประเภทลูกค้าออก — ใช้ค่าเดิม/ค่าเริ่มต้น
   const [saving, setSaving] = useState(false);
   const [f, setF] = useState({
     order_no: order?.order_no ?? `SO-6907-${Math.floor(100 + Math.random() * 900)}`,
-    customer_type: (order?.customer_type ?? 'hotel') as CustomerType,
     customer_name: order?.customer_name ?? '',
     delivery_location: order?.delivery_location ?? '',
     shipping_method: (order?.shipping_method ?? 'company') as ShippingMethod,
     zone_id: order?.zone_id ?? zones[0]?.id ?? 1,
     status: (order?.status ?? 'ready') as OrderStatus,
     cod_amount: order?.cod_amount ?? 0,
+    ship_date: order?.ship_date ?? '',
   });
   const [items, setItems] = useState<ItemRow[]>(
     order && order.items.length
-      ? order.items.map((it) => ({ collection: it.collection, product_name: it.product_name, qty: it.qty, pieces_per_box: it.pieces_per_box }))
+      ? order.items.map((it) => ({ collection: it.collection, product_name: it.product_name, qty: it.qty, pieces_per_box: it.pieces_per_box, note: it.note ?? '' }))
       : [blankItem()]
   );
   const set = (k: keyof typeof f, v: any) => setF((s) => ({ ...s, [k]: v }));
@@ -57,16 +57,18 @@ export default function OrderModal({
         product_name: r.product_name,
         qty: Number(r.qty),
         pieces_per_box: Number(r.pieces_per_box),
+        note: r.note,
       }));
       const order: NewOrder = {
         order_no: f.order_no,
-        customer_type: f.customer_type,
+        customer_type: custType, // ค่าเริ่มต้น (ตัดฟิลด์เลือกออกแล้ว)
         customer_name: f.customer_name,
         delivery_location: f.delivery_location,
         shipping_method: f.shipping_method,
         zone_id: f.zone_id,
         status: f.status,
         cod_amount: Number(f.cod_amount),
+        ship_date: f.ship_date || undefined, // ระบุหรือไม่ระบุก็ได้
         items: payloadItems,
       };
       await onSave(order);
@@ -89,13 +91,6 @@ export default function OrderModal({
               <input value={f.order_no} onChange={(e) => set('order_no', e.target.value)} required />
             </div>
             <div className="field">
-              <label>ประเภทลูกค้า</label>
-              <select value={f.customer_type} onChange={(e) => set('customer_type', e.target.value)}>
-                <option value="hotel">โรงแรม</option>
-                <option value="hospital">โรงพยาบาล</option>
-              </select>
-            </div>
-            <div className="field full">
               <label>ชื่อลูกค้า *</label>
               <input value={f.customer_name} onChange={(e) => set('customer_name', e.target.value)} placeholder="เช่น โรงแรมดุสิตธานี / รพ.บำรุงราษฎร์" required />
             </div>
@@ -126,6 +121,10 @@ export default function OrderModal({
               <label>ยอด COD (บาท)</label>
               <input type="number" min={0} value={f.cod_amount} onChange={(e) => set('cod_amount', e.target.value)} />
             </div>
+            <div className="field">
+              <label>กำหนดจัดส่ง <span className="sub" style={{ fontWeight: 400 }}>(ไม่ระบุก็ได้)</span></label>
+              <input type="date" value={f.ship_date} onChange={(e) => set('ship_date', e.target.value)} />
+            </div>
           </div>
 
           {/* รายการสินค้า (หลายรายการได้) */}
@@ -138,10 +137,8 @@ export default function OrderModal({
               <div className="item-row" key={i}>
                 <div className="item-grid">
                   <div className="field">
-                    <label>Collection</label>
-                    <select value={r.collection} onChange={(e) => setItem(i, 'collection', e.target.value)}>
-                      {COLLECTIONS.map((c) => <option key={c} value={c}>{c}</option>)}
-                    </select>
+                    <label>กลุ่มสินค้า</label>
+                    <input value={r.collection} onChange={(e) => setItem(i, 'collection', e.target.value)} placeholder="เช่น Hotel Premium" />
                   </div>
                   <div className="field">
                     <label>ชื่อสินค้า *</label>
@@ -158,6 +155,10 @@ export default function OrderModal({
                   <div className="field">
                     <label>กล่อง</label>
                     <input value={boxesOf(r)} disabled className="box-readonly" />
+                  </div>
+                  <div className="field">
+                    <label>หมายเหตุ</label>
+                    <input value={r.note} onChange={(e) => setItem(i, 'note', e.target.value)} placeholder="เช่น ด่วน" />
                   </div>
                 </div>
                 <button type="button" className="item-remove" onClick={() => removeItem(i)} disabled={items.length === 1} title="ลบรายการ">×</button>

@@ -3,14 +3,13 @@
 // รูปแบบ: 1 แถว = 1 รายการสินค้า · แถวที่ "เลขที่ใบสั่งงาน" ซ้ำกัน = ออเดอร์เดียวกัน
 // ============================================================
 import * as XLSX from 'xlsx';
-import type { NewOrder, NewOrderItem, Zone, CustomerType, ShippingMethod, OrderStatus, Collection } from './types';
+import type { NewOrder, NewOrderItem, Zone, ShippingMethod, OrderStatus } from './types';
 import { COLLECTIONS } from './types';
 import { STATUS_LABEL } from '../components/badges';
 
 // ---------- หัวคอลัมน์ (ต้องตรงกับ template) ----------
 const COLS = {
   order_no: 'เลขที่ใบสั่งงาน *',
-  customer_type: 'ประเภทลูกค้า *',
   customer_name: 'ชื่อลูกค้า *',
   delivery_location: 'สถานที่ส่ง',
   shipping_method: 'วิธีจัดส่ง',
@@ -18,7 +17,7 @@ const COLS = {
   status: 'สถานะ',
   cod_amount: 'ยอด COD (บาท)',
   ship_date: 'กำหนดจัดส่ง (ปปปป-ดด-วว)',
-  collection: 'กลุ่มสินค้า (Collection) *',
+  collection: 'กลุ่มสินค้า',
   product_name: 'ชื่อสินค้า *',
   qty: 'จำนวน (ชิ้น) *',
   pieces_per_box: 'ชิ้น/กล่อง *',
@@ -27,7 +26,6 @@ const COLS = {
 const HEADERS = Object.values(COLS);
 
 // ---------- reverse maps (ไทย → key) ----------
-const CUSTOMER_MAP: Record<string, CustomerType> = { 'โรงแรม': 'hotel', 'โรงพยาบาล': 'hospital', hotel: 'hotel', hospital: 'hospital' };
 const SHIPPING_MAP: Record<string, ShippingMethod> = { 'ขนส่งบริษัท': 'company', 'ขนส่ง': 'shipping', company: 'company', shipping: 'shipping' };
 const STATUS_MAP: Record<string, OrderStatus> = Object.entries(STATUS_LABEL).reduce(
   (m, [key, label]) => { m[label] = key as OrderStatus; m[key] = key as OrderStatus; return m; },
@@ -69,9 +67,9 @@ export function downloadOrderTemplate(zones: Zone[]) {
 
   // --- Sheet 1: ออเดอร์ (หัว + ตัวอย่าง 3 แถว = 2 ออเดอร์) ---
   const example: Record<string, string | number>[] = [
-    { [COLS.order_no]: 'SO-6907-101', [COLS.customer_type]: 'โรงแรม', [COLS.customer_name]: 'โรงแรมตัวอย่าง', [COLS.delivery_location]: 'ปทุมวัน กทม.', [COLS.shipping_method]: 'ขนส่งบริษัท', [COLS.zone]: 'กทม.', [COLS.status]: 'พร้อมส่ง', [COLS.cod_amount]: 0, [COLS.ship_date]: '2026-07-15', [COLS.collection]: 'Hotel Premium', [COLS.product_name]: 'ผ้าปูที่นอน 6 ฟุต', [COLS.qty]: 240, [COLS.pieces_per_box]: 6, [COLS.note]: '' },
-    { [COLS.order_no]: 'SO-6907-101', [COLS.customer_type]: 'โรงแรม', [COLS.customer_name]: 'โรงแรมตัวอย่าง', [COLS.delivery_location]: 'ปทุมวัน กทม.', [COLS.shipping_method]: 'ขนส่งบริษัท', [COLS.zone]: 'กทม.', [COLS.status]: 'พร้อมส่ง', [COLS.cod_amount]: 0, [COLS.ship_date]: '2026-07-15', [COLS.collection]: 'Spa & Bath', [COLS.product_name]: 'ผ้าเช็ดตัว 27x54', [COLS.qty]: 40, [COLS.pieces_per_box]: 10, [COLS.note]: 'ด่วน' },
-    { [COLS.order_no]: 'SO-6907-102', [COLS.customer_type]: 'โรงพยาบาล', [COLS.customer_name]: 'รพ.ตัวอย่าง', [COLS.delivery_location]: 'อ.เมือง ชลบุรี', [COLS.shipping_method]: 'ขนส่ง', [COLS.zone]: 'ต่างจังหวัด', [COLS.status]: 'รอโอน', [COLS.cod_amount]: 4200, [COLS.ship_date]: '2026-07-16', [COLS.collection]: 'Medical Care', [COLS.product_name]: 'ชุดผู้ป่วย ไซส์ L', [COLS.qty]: 120, [COLS.pieces_per_box]: 6, [COLS.note]: '' },
+    { [COLS.order_no]: 'SO-6907-101', [COLS.customer_name]: 'โรงแรมตัวอย่าง', [COLS.delivery_location]: 'ปทุมวัน กทม.', [COLS.shipping_method]: 'ขนส่งบริษัท', [COLS.zone]: 'กทม.', [COLS.status]: 'พร้อมส่ง', [COLS.cod_amount]: 0, [COLS.ship_date]: '2026-07-15', [COLS.collection]: 'Hotel Premium', [COLS.product_name]: 'ผ้าปูที่นอน 6 ฟุต', [COLS.qty]: 240, [COLS.pieces_per_box]: 6, [COLS.note]: '' },
+    { [COLS.order_no]: 'SO-6907-101', [COLS.customer_name]: 'โรงแรมตัวอย่าง', [COLS.delivery_location]: 'ปทุมวัน กทม.', [COLS.shipping_method]: 'ขนส่งบริษัท', [COLS.zone]: 'กทม.', [COLS.status]: 'พร้อมส่ง', [COLS.cod_amount]: 0, [COLS.ship_date]: '2026-07-15', [COLS.collection]: 'Spa & Bath', [COLS.product_name]: 'ผ้าเช็ดตัว 27x54', [COLS.qty]: 40, [COLS.pieces_per_box]: 10, [COLS.note]: 'ด่วน' },
+    { [COLS.order_no]: 'SO-6907-102', [COLS.customer_name]: 'รพ.ตัวอย่าง', [COLS.delivery_location]: 'อ.เมือง ชลบุรี', [COLS.shipping_method]: 'ขนส่ง', [COLS.zone]: 'ต่างจังหวัด', [COLS.status]: 'รอโอน', [COLS.cod_amount]: 4200, [COLS.ship_date]: '', [COLS.collection]: 'Medical Care', [COLS.product_name]: 'ชุดผู้ป่วย ไซส์ L', [COLS.qty]: 120, [COLS.pieces_per_box]: 6, [COLS.note]: '' },
   ];
   const ws = XLSX.utils.json_to_sheet(example, { header: HEADERS });
   ws['!cols'] = HEADERS.map((h) => ({ wch: Math.max(14, h.length + 2) }));
@@ -89,12 +87,11 @@ export function downloadOrderTemplate(zones: Zone[]) {
     [''],
     ['── ค่าที่ใช้ได้ในแต่ละคอลัมน์ ──'],
     [''],
-    ['ประเภทลูกค้า', 'โรงแรม, โรงพยาบาล'],
     ['วิธีจัดส่ง', 'ขนส่งบริษัท, ขนส่ง'],
     ['โซน', zones.map((z) => z.name).join(', ') || 'กทม., ต่างจังหวัด'],
     ['สถานะ', Object.values(STATUS_LABEL).join(', ')],
-    ['กลุ่มสินค้า (Collection)', COLLECTIONS.join(', ')],
-    ['กำหนดจัดส่ง', 'รูปแบบ ปปปป-ดด-วว เช่น 2026-07-15'],
+    ['กลุ่มสินค้า', 'คีย์เองได้ตามต้องการ · ตัวอย่าง: ' + COLLECTIONS.join(', ')],
+    ['กำหนดจัดส่ง', 'รูปแบบ ปปปป-ดด-วว เช่น 2026-07-15 · เว้นว่างได้ (ไม่ระบุ)'],
     ['จำนวน / ชิ้นต่อกล่อง', 'ตัวเลขเท่านั้น · ระบบจะคำนวณจำนวนกล่องให้อัตโนมัติ'],
   ];
   const wsGuide = XLSX.utils.aoa_to_sheet(guide);
@@ -132,9 +129,7 @@ export async function parseOrdersFromExcel(file: File, zones: Zone[]): Promise<P
     if (!order_no) { errors.push(`แถว ${line}: ไม่มีเลขที่ใบสั่งงาน — ข้าม`); return; }
     if (!product_name) { errors.push(`แถว ${line}: ไม่มีชื่อสินค้า — ข้าม`); return; }
 
-    const collRaw = s(row[COLS.collection]);
-    const collection = (COLLECTIONS.includes(collRaw as Collection) ? collRaw : COLLECTIONS[0]) as Collection;
-    if (collRaw && !COLLECTIONS.includes(collRaw as Collection)) errors.push(`แถว ${line}: กลุ่มสินค้า "${collRaw}" ไม่ถูกต้อง → ใช้ ${COLLECTIONS[0]}`);
+    const collection = s(row[COLS.collection]); // คีย์เองได้ ไม่บังคับค่า
 
     const qty = num(row[COLS.qty]);
     const ppb = num(row[COLS.pieces_per_box]) || 1;
@@ -146,12 +141,11 @@ export async function parseOrdersFromExcel(file: File, zones: Zone[]): Promise<P
     if (existing) {
       existing.items.push(item);
     } else {
-      const customerRaw = s(row[COLS.customer_type]);
       const shipRaw = s(row[COLS.shipping_method]);
       const statusRaw = s(row[COLS.status]);
       grouped.set(order_no, {
         order_no,
-        customer_type: CUSTOMER_MAP[customerRaw] ?? 'hotel',
+        customer_type: 'hotel', // ตัดคอลัมน์ประเภทลูกค้าออก — ใช้ค่าเริ่มต้น
         customer_name: s(row[COLS.customer_name]) || order_no,
         delivery_location: s(row[COLS.delivery_location]),
         shipping_method: SHIPPING_MAP[shipRaw] ?? 'company',

@@ -50,7 +50,7 @@ export interface Driver {
 // รายการสินค้าในใบสั่งขาย (line item)
 export interface OrderItem {
   id: number;
-  collection: Collection;
+  collection: string; // กลุ่มสินค้า (คีย์เองได้)
   product_name: string; // ผ้าปูที่นอน 6 ฟุต
   qty: number; // จำนวน (ชิ้น)
   pieces_per_box: number; // ชิ้น/กล่อง
@@ -79,7 +79,7 @@ export interface Order {
 }
 
 export interface NewOrderItem {
-  collection: Collection;
+  collection: string; // กลุ่มสินค้า (คีย์เองได้)
   product_name: string;
   qty: number;
   pieces_per_box: number;

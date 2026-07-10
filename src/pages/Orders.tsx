@@ -8,12 +8,12 @@ const STATUS_ORDER: OrderStatus[] = [
 ];
 
 function exportCsv(orders: Order[]) {
-  const rows = [['เลขที่ใบสั่งงาน', 'ลูกค้า', 'ประเภท', 'Collection', 'รายการสินค้า', 'จำนวน', 'ชิ้น/กล่อง', 'กล่อง', 'สถานะ', 'สถานที่ส่ง', 'กำหนดจัดส่ง']];
+  const rows = [['เลขที่ใบสั่งงาน', 'ลูกค้า', 'กลุ่มสินค้า', 'รายการสินค้า', 'จำนวน', 'ชิ้น/กล่อง', 'กล่อง', 'หมายเหตุ', 'สถานะ', 'สถานที่ส่ง', 'กำหนดจัดส่ง']];
   orders.forEach((o) =>
     o.items.forEach((it) =>
       rows.push([
-        o.order_no, o.customer_name, o.customer_type === 'hotel' ? 'โรงแรม' : 'โรงพยาบาล',
-        it.collection, it.product_name, String(it.qty), String(it.pieces_per_box), String(it.boxes),
+        o.order_no, o.customer_name,
+        it.collection, it.product_name, String(it.qty), String(it.pieces_per_box), String(it.boxes), it.note ?? '',
         STATUS_LABEL[o.status], o.delivery_location, o.ship_date ?? '',
       ])
     )
@@ -113,7 +113,7 @@ export default function Orders({
             <thead>
               <tr>
                 <th style={{ width: 24 }}>#</th>
-                <th style={{ width: 108 }}>โรงแรม / โรงพยาบาล</th>
+                <th style={{ width: 108 }}>ลูกค้า</th>
                 <th style={{ width: 84 }}>เลขที่ใบสั่งงาน</th>
                 <th style={{ width: 132 }}>รายการสินค้า</th>
                 <th style={{ width: 48 }}>จำนวน</th>
@@ -133,8 +133,7 @@ export default function Orders({
                       {j === 0 && <td rowSpan={o.items.length} className="cell-top">{idx + 1}</td>}
                       {j === 0 && (
                         <td rowSpan={o.items.length} className="cell-top wrap-hard">
-                          <span className={`type-tag ${o.customer_type}`}>{o.customer_type === 'hotel' ? 'โรงแรม' : 'โรงพยาบาล'}</span>
-                          <div style={{ fontWeight: 600, marginTop: 4 }}>{o.customer_name}</div>
+                          <div style={{ fontWeight: 600 }}>{o.customer_name}</div>
                         </td>
                       )}
                       {j === 0 && <td rowSpan={o.items.length} className="cell-top"><code>{o.order_no}</code></td>}

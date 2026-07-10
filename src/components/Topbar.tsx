@@ -1,16 +1,14 @@
-import { IconSearch, IconBell, IconDownload } from './icons';
+import { IconSearch, IconBell } from './icons';
 
 export default function Topbar({
   title,
   subtitle,
-  onImport,
   onMenu,
   search,
   onSearch,
 }: {
   title: string;
   subtitle: string;
-  onImport: () => void;
   onMenu: () => void;
   search: string;
   onSearch: (v: string) => void;
@@ -38,9 +36,6 @@ export default function Topbar({
       </div>
 
       <div className="topbar-actions">
-        <button className="btn btn-dark" onClick={onImport}>
-          <IconDownload /> <span className="hide-sm">นำเข้า Excel</span>
-        </button>
         <button className="icon-btn" title="การแจ้งเตือน">
           <IconBell />
           <span className="icon-badge">4</span>
