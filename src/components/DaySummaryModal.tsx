@@ -2,6 +2,10 @@ import { useState } from 'react';
 import type { Order, Zone } from '../lib/types';
 import { STATUS_LABEL, STATUS_COLOR } from './badges';
 
+const SHIP_LABEL: Record<string, string> = { company: 'ขนส่งบริษัท', shipping: 'ขนส่ง' };
+const SHIP_ICON: Record<string, string> = { company: '🚚', shipping: '📦' };
+const SHIP_ORDER = ['company', 'shipping'];
+
 export default function DaySummaryModal({
   dateKey,
   orders,
@@ -22,16 +26,13 @@ export default function DaySummaryModal({
   const totalBoxes = orders.reduce((s, o) => s + o.box_count, 0);
   const totalCod = orders.reduce((s, o) => s + o.cod_amount, 0);
   const delivered = orders.filter((o) => o.status === 'delivered').length;
+  const st = (s: string) => (STATUS_LABEL as Record<string, string>)[s] ?? s;
+  const clr = (s: string) => (STATUS_COLOR as Record<string, string>)[s] ?? '#64748b';
 
   // สรุปตามสถานะ
   const statusMap = new Map<string, number>();
   orders.forEach((o) => statusMap.set(o.status, (statusMap.get(o.status) ?? 0) + 1));
-  const statusRows = [...statusMap.entries()].map(([k, v]) => ({
-    key: k,
-    label: (STATUS_LABEL as Record<string, string>)[k] ?? k,
-    color: (STATUS_COLOR as Record<string, string>)[k] ?? '#94a3b8',
-    count: v,
-  }));
+  const statusRows = [...statusMap.entries()].map(([k, v]) => ({ key: k, label: st(k), color: clr(k), count: v }));
 
   // สรุปตามโซน
   const zoneMap = new Map<number, number>();
@@ -39,7 +40,11 @@ export default function DaySummaryModal({
   const zoneName = (id: number) => zones.find((z) => z.id === id)?.name ?? 'ไม่ระบุโซน';
   const zoneRows = [...zoneMap.entries()].map(([id, count]) => ({ name: zoneName(id), count }));
 
-  const st = (s: string) => (STATUS_LABEL as Record<string, string>)[s] ?? s;
+  // จัดกลุ่มตามวิธีขนส่ง
+  const groups = SHIP_ORDER
+    .map((method) => ({ method, list: orders.filter((o) => o.shipping_method === method) }))
+    .filter((g) => g.list.length > 0);
+  const groupBoxes = (list: Order[]) => list.reduce((s, o) => s + o.box_count, 0);
 
   // ---- ข้อความสรุปสำหรับส่งฝ่ายขาย (LINE / แชท) ----
   const buildText = () => {
@@ -48,14 +53,18 @@ export default function DaySummaryModal({
     lines.push(`รวม ${orders.length} ออเดอร์ · ${totalBoxes} กล่อง${totalCod ? ` · COD ฿${totalCod.toLocaleString()}` : ''}`);
     lines.push('');
     statusRows.forEach((s) => lines.push(`▪️ ${s.label}: ${s.count}`));
-    if (zoneRows.length) {
+    if (zoneRows.length) lines.push('โซน: ' + zoneRows.map((z) => `${z.name} ${z.count}`).join(' · '));
+    groups.forEach((g) => {
       lines.push('');
-      lines.push('โซน: ' + zoneRows.map((z) => `${z.name} ${z.count}`).join(' · '));
-    }
-    lines.push('');
-    lines.push('รายการ:');
-    orders.forEach((o, i) => {
-      lines.push(`${i + 1}. ${o.order_no} · ${o.customer_name} · ${o.box_count} กล่อง · ${st(o.status)}`);
+      lines.push(`━━ ${SHIP_ICON[g.method]} ${SHIP_LABEL[g.method]} (${g.list.length} ออเดอร์ · ${groupBoxes(g.list)} กล่อง) ━━`);
+      g.list.forEach((o, i) => {
+        lines.push(`${i + 1}. ${o.order_no} · ${o.customer_name} · ${st(o.status)}`);
+        if (o.delivery_location) lines.push(`   📍 ${o.delivery_location}`);
+        o.items.forEach((it) => {
+          const note = it.note ? ` (${it.note})` : '';
+          lines.push(`   - ${it.collection} ${it.product_name} · ${it.qty} ชิ้น · ${it.boxes} กล่อง${note}`);
+        });
+      });
     });
     return lines.join('\n');
   };
@@ -67,7 +76,6 @@ export default function DaySummaryModal({
       await navigator.clipboard.writeText(text);
       ok = true;
     } catch {
-      // fallback: textarea + execCommand (สำหรับเบราว์เซอร์/บริบทที่ clipboard API ถูกบล็อก)
       try {
         const ta = document.createElement('textarea');
         ta.value = text;
@@ -90,7 +98,7 @@ export default function DaySummaryModal({
 
   return (
     <div className="overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="modal" style={{ maxWidth: 560 }}>
+      <div className="modal" style={{ maxWidth: 620 }}>
         <div className="modal-head">
           <div>
             <h3 style={{ margin: 0 }}>สรุปงานจัดส่ง</h3>
@@ -127,24 +135,42 @@ export default function DaySummaryModal({
                 </div>
               )}
 
-              {/* รายการออเดอร์ */}
-              <div className="dsum-list">
-                {orders.map((o, i) => (
-                  <div key={o.id} className="dsum-row">
-                    <span className="dsum-idx">{i + 1}</span>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
-                        <code>{o.order_no}</code>
-                        <span style={{ fontWeight: 600 }}>{o.customer_name}</span>
-                      </div>
-                      <div className="sub" style={{ color: '#94a3b8' }}>{o.delivery_location || '—'} · {o.box_count} กล่อง</div>
-                    </div>
-                    <span className="dsum-status" style={{ color: (STATUS_COLOR as Record<string, string>)[o.status] ?? '#64748b' }}>
-                      {st(o.status)}
-                    </span>
+              {/* รายการ แยกตามวิธีขนส่ง + รายละเอียดสินค้า */}
+              {groups.map((g) => (
+                <div key={g.method}>
+                  <div className="dsum-ship-head">
+                    <span>{SHIP_ICON[g.method]} {SHIP_LABEL[g.method]}</span>
+                    <span className="dsum-ship-nums">{g.list.length} ออเดอร์ · {groupBoxes(g.list)} กล่อง</span>
                   </div>
-                ))}
-              </div>
+                  <div className="dsum-list">
+                    {g.list.map((o, i) => (
+                      <div key={o.id} className="dsum-order">
+                        <div className="dsum-order-head">
+                          <span className="dsum-idx">{i + 1}</span>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+                              <code>{o.order_no}</code>
+                              <span style={{ fontWeight: 600 }}>{o.customer_name}</span>
+                            </div>
+                            {o.delivery_location && <div className="sub" style={{ color: '#94a3b8' }}>📍 {o.delivery_location}</div>}
+                          </div>
+                          <span className="dsum-status" style={{ color: clr(o.status) }}>{st(o.status)}</span>
+                        </div>
+                        <div className="dsum-items">
+                          {o.items.map((it) => (
+                            <div key={it.id} className="dsum-item">
+                              <span className="dsum-col">{it.collection}</span>
+                              <span className="dsum-prod">{it.product_name}</span>
+                              <span className="dsum-qty">{it.qty} ชิ้น · <b>{it.boxes}</b> กล่อง</span>
+                              {it.note && <span className="dsum-note">* {it.note}</span>}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
             </>
           )}
         </div>
