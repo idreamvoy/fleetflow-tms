@@ -2,12 +2,14 @@ import { useState } from 'react';
 import type { Order, Zone } from '../lib/types';
 import { computeStats, computeStatusBreakdown, computeZoneSummary } from '../lib/supabase';
 import Donut from '../components/Donut';
+import DaySummaryModal from '../components/DaySummaryModal';
 import { IconBox, IconTruck, IconMoney, IconCheck, IconAlert, IconGrid, IconCalendar } from '../components/icons';
 
 const WEEKDAYS = ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส'];
 
 export default function Dashboard({ orders, zones }: { orders: Order[]; zones: Zone[] }) {
   const [view, setView] = useState<'summary' | 'calendar'>('summary');
+  const [selDay, setSelDay] = useState<string | null>(null);
   const stats = computeStats(orders);
   const breakdown = computeStatusBreakdown(orders);
   const zoneSummary = computeZoneSummary(orders, zones);
@@ -132,7 +134,7 @@ export default function Dashboard({ orders, zones }: { orders: Order[]; zones: Z
           <div className="card-header">
             <div>
               <h3>ปฏิทินจัดส่ง</h3>
-              <div className="sub">Delivery calendar · ตามวันกำหนดจัดส่ง</div>
+              <div className="sub">คลิกวันที่มีงาน เพื่อดูสรุป · คัดลอกส่งฝ่ายขายได้</div>
             </div>
             <span className="sub" style={{ fontWeight: 700, color: 'var(--text)' }}>
               {today.toLocaleDateString('th-TH', { month: 'long', year: 'numeric' })}
@@ -148,8 +150,13 @@ export default function Dashboard({ orders, zones }: { orders: Order[]; zones: Z
                 const list = byDate.get(keyOf(d)) ?? [];
                 const boxes = list.reduce((s, o) => s + o.box_count, 0);
                 const isToday = d === today.getDate();
+                const clickable = list.length > 0;
                 return (
-                  <div key={d} className={`cal-cell${isToday ? ' today' : ''}${list.length ? ' has' : ''}`}>
+                  <div
+                    key={d}
+                    className={`cal-cell${isToday ? ' today' : ''}${clickable ? ' has clickable' : ''}`}
+                    onClick={clickable ? () => setSelDay(keyOf(d)) : undefined}
+                  >
                     <div className="cal-day">{d}</div>
                     {list.length > 0 && (
                       <div className="cal-info">
@@ -163,6 +170,15 @@ export default function Dashboard({ orders, zones }: { orders: Order[]; zones: Z
             </div>
           </div>
         </div>
+      )}
+
+      {selDay && (
+        <DaySummaryModal
+          dateKey={selDay}
+          orders={byDate.get(selDay) ?? []}
+          zones={zones}
+          onClose={() => setSelDay(null)}
+        />
       )}
     </>
   );
