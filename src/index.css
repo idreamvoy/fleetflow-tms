@@ -423,6 +423,11 @@ table.data tbody tr:last-child td { border-bottom: none; }
 .cap-gauge svg { width: 52px; height: 52px; }
 .cap-gauge-val { position: absolute; inset: 0; display: grid; place-items: center; font-size: 13px; font-weight: 800; color: var(--text); }
 .cap-note { font-size: 12px; margin-top: 4px; }
+.trip-dates { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 6px; }
+.trip-dates-lb { font-size: 11px; color: var(--text-2); }
+.trip-date-chip { font-size: 11px; font-weight: 700; color: #0369a1; background: #e0f2fe; border-radius: 6px; padding: 2px 8px; }
+.trip-date-chip.none { color: #64748b; background: #f1f5f9; }
+.stop-date-chip { font-size: 11px; font-weight: 700; color: #0369a1; background: #e0f2fe; border-radius: 6px; padding: 1px 7px; }
 
 /* Trip: route timeline */
 .trip-timeline { margin-top: 12px; }

@@ -300,6 +300,8 @@ export default function Planning({
               const capColor = over ? '#f43f5e' : pct > 80 ? '#f59e0b' : '#10b981';
               const plan = active ? routePlan(stops.map((o) => geocode(o.delivery_location, o.zone_id))) : null;
               const codTotal = stops.reduce((s, o) => s + o.cod_amount, 0);
+              // วันกำหนดส่งของเที่ยวนี้ (แสดงตอนเลือก 'ทุกวัน')
+              const tripDates = day === 'all' ? [...new Set(stops.map((o) => o.ship_date || 'none'))].sort() : [];
               return (
                 <div key={t.id} className={`plan-trip${active ? ' active' : ''}`} onClick={() => setSelectedTrip(t.id)}>
                   <div className="plan-trip-head">
@@ -312,6 +314,14 @@ export default function Planning({
                       <div className="cap-note" style={{ color: over ? 'var(--rose)' : '#64748b' }}>
                         {used} / {t.capacity_boxes} กล่อง · {over ? `เกิน ${pct - 100}%` : `รับเพิ่มได้ ${t.capacity_boxes - used}`}
                       </div>
+                      {tripDates.length > 0 && (
+                        <div className="trip-dates">
+                          <span className="trip-dates-lb">🗓️ กำหนดส่ง</span>
+                          {tripDates.map((dd) => (
+                            <span key={dd} className={`trip-date-chip${dd === 'none' ? ' none' : ''}`}>{dd === 'none' ? 'ไม่ระบุวัน' : fmtDay(dd)}</span>
+                          ))}
+                        </div>
+                      )}
                     </div>
                     <CapGauge pct={pct} color={capColor} />
                   </div>
@@ -364,6 +374,7 @@ export default function Planning({
                                 <div style={{ flex: 1, minWidth: 0, cursor: 'pointer' }} onClick={() => setDetail(o)}>
                                   <div style={{ fontWeight: 600, display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
                                     {o.customer_name}
+                                    {day === 'all' && <span className="stop-date-chip">🗓️ {o.ship_date ? fmtDay(o.ship_date) : 'ไม่ระบุ'}</span>}
                                     {mismatch && <span className="warn-tag zone">⚠️ ผิดโซน</span>}
                                     {isUrgent(o) && <span className="warn-tag urgent">🔥</span>}
                                   </div>
