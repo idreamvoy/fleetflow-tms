@@ -7,11 +7,12 @@ import Planning from './pages/Planning';
 import Tracking from './pages/Tracking';
 import DriverApp from './pages/DriverApp';
 import Reports from './pages/Reports';
+import Settings from './pages/Settings';
 import OrderModal from './components/OrderModal';
 import PodModal from './components/PodModal';
 import ImportModal from './components/ImportModal';
 import { db, IS_SUPABASE_CONFIGURED } from './lib/supabase';
-import type { Order, Zone, Driver, Trip, StatusMovement, StatusEvent, NewOrder, OrderStatus, PodInput } from './lib/types';
+import type { Order, Zone, Driver, Trip, StatusMovement, StatusEvent, NewOrder, OrderStatus, PodInput, NewDriver } from './lib/types';
 
 const PAGE_META: Record<PageKey, { title: string; subtitle: string }> = {
   dashboard: { title: 'Dashboard', subtitle: 'ภาพรวมระบบ · ศูนย์ควบคุมการจัดส่ง' },
@@ -20,6 +21,7 @@ const PAGE_META: Record<PageKey, { title: string; subtitle: string }> = {
   driver: { title: 'Driver App', subtitle: 'งานของคนขับ · เลือกวัน นำทาง และยืนยันการส่ง' },
   tracking: { title: 'ติดตามเส้นทาง', subtitle: 'Tracking · แผนที่และสถานะรถ' },
   reports: { title: 'รายงาน', subtitle: 'Reports · สรุปผลการดำเนินงาน' },
+  settings: { title: 'ตั้งค่า', subtitle: 'Settings · จัดการคนขับและข้อมูลหลัก' },
 };
 
 export default function App() {
@@ -142,6 +144,31 @@ export default function App() {
     flash(`บันทึกการส่ง ${input.order.order_no} · ${label} ✓`);
   }
 
+  async function handleSaveDriver(data: NewDriver, id?: number) {
+    if (id) {
+      await db.updateDriver(id, data);
+      flash('บันทึกการแก้ไขคนขับแล้ว ✓');
+    } else {
+      await db.addDriver(data);
+      flash('เพิ่มคนขับสำเร็จ ✓');
+    }
+    await loadAll();
+  }
+  async function handleToggleDriverOnline(id: number, is_online: boolean) {
+    await db.updateDriver(id, { is_online });
+    setDrivers((prev) => prev.map((d) => (d.id === id ? { ...d, is_online } : d)));
+  }
+  async function handleDeleteDriver(id: number) {
+    try {
+      await db.deleteDriver(id);
+      setDrivers((prev) => prev.filter((d) => d.id !== id));
+      flash('ลบคนขับแล้ว');
+    } catch (e: any) {
+      const fk = e?.code === '23503' || /foreign key|violat/i.test(e?.message ?? '');
+      flash(fk ? 'ลบไม่ได้ — คนขับนี้ยังผูกกับเที่ยวรถอยู่ (นำออกจากเที่ยวก่อน)' : 'ลบไม่สำเร็จ');
+    }
+  }
+
   const onlineDrivers = drivers.filter((d) => d.is_online).length;
 
   const filteredOrders = useMemo(() => {
@@ -186,6 +213,8 @@ export default function App() {
             <Tracking trips={trips} orders={orders} />
           ) : page === 'driver' ? (
             <DriverApp drivers={drivers} trips={trips} orders={orders} onOpenPod={openPod} />
+          ) : page === 'settings' ? (
+            <Settings drivers={drivers} onSave={handleSaveDriver} onDelete={handleDeleteDriver} onToggleOnline={handleToggleDriverOnline} />
           ) : (
             <Reports orders={orders} movements={movements} drivers={drivers} trips={trips} history={history} />
           )}

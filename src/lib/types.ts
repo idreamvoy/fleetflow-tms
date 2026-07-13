@@ -47,6 +47,13 @@ export interface Driver {
   is_online: boolean;
 }
 
+export interface NewDriver {
+  name: string;
+  phone?: string | null;
+  vehicle?: string | null;
+  is_online?: boolean;
+}
+
 // รายการสินค้าในใบสั่งขาย (line item)
 export interface OrderItem {
   id: number;

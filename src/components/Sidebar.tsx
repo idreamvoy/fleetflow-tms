@@ -1,6 +1,6 @@
-import { IconGrid, IconRoute, IconBox, IconTruck, IconPin, IconChart } from './icons';
+import { IconGrid, IconRoute, IconBox, IconTruck, IconPin, IconChart, IconSettings } from './icons';
 
-export type PageKey = 'dashboard' | 'planning' | 'orders' | 'driver' | 'tracking' | 'reports';
+export type PageKey = 'dashboard' | 'planning' | 'orders' | 'driver' | 'tracking' | 'reports' | 'settings';
 
 interface NavDef {
   key: PageKey;
@@ -16,6 +16,7 @@ const NAV: NavDef[] = [
   { key: 'driver', label: 'Driver app', icon: IconTruck },
   { key: 'tracking', label: 'ติดตามเส้นทาง', icon: IconPin },
   { key: 'reports', label: 'รายงาน', icon: IconChart },
+  { key: 'settings', label: 'ตั้งค่า', icon: IconSettings },
 ];
 
 export default function Sidebar({

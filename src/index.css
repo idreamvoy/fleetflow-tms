@@ -429,6 +429,15 @@ table.data tbody tr:last-child td { border-bottom: none; }
 .trip-date-chip.none { color: #64748b; background: #f1f5f9; }
 .stop-date-chip { font-size: 11px; font-weight: 700; color: #0369a1; background: #e0f2fe; border-radius: 6px; padding: 1px 7px; }
 
+/* หน้าตั้งค่า — คนขับ */
+.drv-toggle { display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 14px; font-weight: 600; color: var(--text); user-select: none; }
+.drv-toggle input { width: 17px; height: 17px; accent-color: var(--indigo); cursor: pointer; }
+.drv-status { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; border-radius: 999px; padding: 4px 11px; border: 1px solid transparent; cursor: pointer; transition: filter 0.12s; }
+.drv-status:hover { filter: brightness(0.96); }
+.drv-status.on { color: #059669; background: #dcfce7; border-color: #a7f3d0; }
+.drv-status.off { color: #64748b; background: #f1f5f9; border-color: #e2e8f0; }
+.drv-dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+
 /* Trip: route timeline */
 .trip-timeline { margin-top: 12px; }
 .tl-stop { position: relative; display: flex; gap: 12px; padding-bottom: 14px; }

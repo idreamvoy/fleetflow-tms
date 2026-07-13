@@ -22,6 +22,7 @@ import type {
   Collection,
   PodInput,
   DriverPerformance,
+  NewDriver,
 } from './types';
 
 const URL = import.meta.env.VITE_SUPABASE_URL as string | undefined;
@@ -69,6 +70,8 @@ export const DEMO_DRIVERS: Driver[] = [
   { id: 3, name: 'ธนา พ.', phone: '083-333-3333', vehicle: 'งก-4471', is_online: false },
   { id: 4, name: 'ประยุทธ ส.', phone: '084-444-4444', vehicle: 'สค-2210', is_online: false },
 ];
+// สำเนาที่แก้ไขได้สำหรับโหมด Demo (หน้าตั้งค่า)
+let demoDrivers: Driver[] = DEMO_DRIVERS.map((d) => ({ ...d }));
 
 // ---------- แหล่งข้อมูลจำลอง (โรงแรม/โรงพยาบาล + สินค้าผ้า) ----------
 const HOTELS = [
@@ -219,10 +222,50 @@ export const db = {
   },
 
   async getDrivers(): Promise<Driver[]> {
-    if (!supabase) return DEMO_DRIVERS;
+    if (!supabase) return demoDrivers.map((d) => ({ ...d }));
     const { data, error } = await supabase.from('drivers').select('*').order('id');
-    if (error) { console.error('getDrivers', error); return DEMO_DRIVERS; }
+    if (error) { console.error('getDrivers', error); return demoDrivers.map((d) => ({ ...d })); }
     return data as Driver[];
+  },
+
+  async addDriver(input: NewDriver): Promise<Driver> {
+    const row = {
+      name: input.name.trim(),
+      phone: input.phone?.trim() || null,
+      vehicle: input.vehicle?.trim() || null,
+      is_online: input.is_online ?? false,
+    };
+    if (!supabase) {
+      const d: Driver = { id: Math.max(0, ...demoDrivers.map((x) => x.id)) + 1, ...row };
+      demoDrivers = [...demoDrivers, d];
+      return d;
+    }
+    const { data, error } = await supabase.from('drivers').insert(row).select().single();
+    if (error) throw error;
+    return data as Driver;
+  },
+
+  async updateDriver(id: number, patch: Partial<NewDriver>): Promise<void> {
+    const row: Record<string, unknown> = {};
+    if (patch.name !== undefined) row.name = patch.name.trim();
+    if (patch.phone !== undefined) row.phone = patch.phone?.trim() || null;
+    if (patch.vehicle !== undefined) row.vehicle = patch.vehicle?.trim() || null;
+    if (patch.is_online !== undefined) row.is_online = patch.is_online;
+    if (!supabase) {
+      demoDrivers = demoDrivers.map((d) => (d.id === id ? { ...d, ...row } as Driver : d));
+      return;
+    }
+    const { error } = await supabase.from('drivers').update(row).eq('id', id);
+    if (error) throw error;
+  },
+
+  async deleteDriver(id: number): Promise<void> {
+    if (!supabase) {
+      demoDrivers = demoDrivers.filter((d) => d.id !== id);
+      return;
+    }
+    const { error } = await supabase.from('drivers').delete().eq('id', id);
+    if (error) throw error;
   },
 
   async getOrders(): Promise<Order[]> {
