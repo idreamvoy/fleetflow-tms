@@ -438,6 +438,24 @@ table.data tbody tr:last-child td { border-bottom: none; }
 .drv-status.off { color: #64748b; background: #f1f5f9; border-color: #e2e8f0; }
 .drv-dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
 
+/* หน้าตั้งค่า — โซน */
+.zone-swatches { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.zone-swatch { width: 26px; height: 26px; border-radius: 8px; border: 2px solid transparent; cursor: pointer; padding: 0; }
+.zone-swatch.active { border-color: var(--text); box-shadow: 0 0 0 2px #fff inset; }
+.zone-color-input { width: 34px; height: 30px; padding: 0; border: 1px solid var(--border); border-radius: 8px; background: none; cursor: pointer; }
+.zone-preview { display: flex; justify-content: center; padding: 4px 0; }
+
+/* ปุ่มลบแบบ ghost */
+.btn.danger { color: var(--rose); border-color: #fecdd3; }
+.btn.danger:hover { background: #fff1f2; }
+
+/* ป้ายสถานะเที่ยวรถ (Planning) */
+.trip-badge { font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 999px; }
+.trip-badge.planning { color: #64748b; background: #f1f5f9; }
+.trip-badge.assigned { color: #0369a1; background: #e0f2fe; }
+.trip-badge.in_progress { color: #059669; background: #dcfce7; }
+.trip-badge.completed { color: #475569; background: #e2e8f0; }
+
 /* Trip: route timeline */
 .trip-timeline { margin-top: 12px; }
 .tl-stop { position: relative; display: flex; gap: 12px; padding-bottom: 14px; }

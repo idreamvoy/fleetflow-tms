@@ -39,6 +39,11 @@ export interface Zone {
   color: string;
 }
 
+export interface NewZone {
+  name: string;
+  color: string;
+}
+
 export interface Driver {
   id: number;
   name: string;

@@ -1,9 +1,19 @@
 import { useMemo, useState } from 'react';
-import type { Order, Trip, Driver, OrderStatus } from '../lib/types';
+import type { Order, Trip, Driver, Zone, OrderStatus, TripStatus } from '../lib/types';
 import { TRIP_STATUS_LABEL } from '../lib/types';
-import { IconRoute, IconPin, IconTruck, IconBox } from '../components/icons';
+import { IconRoute, IconPin, IconTruck, IconBox, IconPlus } from '../components/icons';
 import OrderDetail from '../components/OrderDetail';
 import MapModal from '../components/MapModal';
+import TripModal from '../components/TripModal';
+
+const TRIP_STATUS_FLOW: TripStatus[] = ['planning', 'assigned', 'in_progress', 'completed'];
+const shortZone = (name?: string | null) => {
+  const n = name ?? '';
+  if (/กทม|กรุงเทพ|ปริมณฑล/.test(n)) return 'กทม.';
+  if (/ต่างประเทศ/.test(n)) return 'ต่างประเทศ';
+  if (/ต่างจังหวัด|ตจว/.test(n)) return 'ต่างจังหวัด';
+  return n || '—';
+};
 import { geocode, optimizeOrder, routePlan, fmtClock, fmtDuration, WAREHOUSE, haversine } from '../lib/geo';
 
 const WAREHOUSE_ORIGIN = `${WAREHOUSE.lat},${WAREHOUSE.lng}`; // คลังเนเจอร์ทัช
@@ -31,18 +41,26 @@ export default function Planning({
   orders,
   trips,
   drivers,
+  zones,
   onAssign,
   onUnassign,
   onReorder,
   onSetTripDriver,
+  onCreateTrip,
+  onSetTripStatus,
+  onDeleteTrip,
 }: {
   orders: Order[];
   trips: Trip[];
   drivers: Driver[];
+  zones: Zone[];
   onAssign: (orderId: number, tripId: number) => Promise<void>;
   onUnassign: (orderId: number, tripId: number) => Promise<void>;
   onReorder: (tripId: number, orderIds: number[]) => Promise<void>;
   onSetTripDriver: (tripId: number, driverId: number | null) => Promise<void>;
+  onCreateTrip: (input: { driver_id: number | null; zone_id: number | null; vehicle_type: string; capacity_boxes: number }) => Promise<void>;
+  onSetTripStatus: (tripId: number, status: TripStatus) => Promise<void>;
+  onDeleteTrip: (tripId: number) => Promise<void>;
 }) {
   const assignedIds = useMemo(() => new Set(trips.flatMap((t) => t.order_ids)), [trips]);
   const unassigned = orders.filter((o) => !assignedIds.has(o.id) && WAITING_STATUSES.includes(o.status));
@@ -55,6 +73,8 @@ export default function Planning({
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const [mapTrip, setMapTrip] = useState<Trip | null>(null);
   const [sortByDistance, setSortByDistance] = useState(false);
+  const [showTripModal, setShowTripModal] = useState(false);
+  const [confirmDelTrip, setConfirmDelTrip] = useState<number | null>(null);
 
   // ---- ตัวกรองวัน: ใช้กับทั้งออเดอร์รอจัด + จุดส่งในเที่ยว ----
   const dayMatch = (o: Order) => day === 'all' || o.ship_date === day;
@@ -292,6 +312,9 @@ export default function Planning({
               <h3>เที่ยวรถ · {dayLabel}</h3>
               <div className="sub">มาตรวัดความจุ · ไทม์ไลน์เส้นทาง · ลากวางปรับลำดับได้</div>
             </div>
+            <button className="btn btn-primary" onClick={() => setShowTripModal(true)}>
+              <IconPlus /> สร้างเที่ยว
+            </button>
           </div>
           <div className="card-scroll">
             {trips.map((t) => {
@@ -311,7 +334,8 @@ export default function Planning({
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontWeight: 700, display: 'flex', gap: 8, alignItems: 'center' }}>
                         TR-{String(t.id).padStart(2, '0')}
-                        <span className="zone-pill">{t.zone_id === 1 ? 'กทม.' : 'ต่างจังหวัด'}</span>
+                        <span className="zone-pill">{shortZone(t.zone_name)}</span>
+                        <span className={`badge trip-badge ${t.status}`}>{TRIP_STATUS_LABEL[t.status]}</span>
                       </div>
                       <div className="sub" style={{ color: '#94a3b8' }}>{t.vehicle_type} · {t.driver_name ?? 'ยังไม่ระบุคนขับ'}</div>
                       <div className="cap-note" style={{ color: over ? 'var(--rose)' : '#64748b' }}>
@@ -347,6 +371,20 @@ export default function Planning({
                       🗺️ แผนที่
                     </button>
                     <button className="btn btn-ghost xs" disabled={!stops.length} onClick={() => openMaps(t)}>Google</button>
+                    <label className="trip-carrier">
+                      <span>สถานะ</span>
+                      <select value={t.status} onChange={(e) => onSetTripStatus(t.id, e.target.value as TripStatus)}>
+                        {TRIP_STATUS_FLOW.map((s) => <option key={s} value={s}>{TRIP_STATUS_LABEL[s]}</option>)}
+                      </select>
+                    </label>
+                    {confirmDelTrip === t.id ? (
+                      <>
+                        <button className="btn btn-ghost xs danger" onClick={async () => { await onDeleteTrip(t.id); setConfirmDelTrip(null); }}>ยืนยันลบ</button>
+                        <button className="btn btn-ghost xs" onClick={() => setConfirmDelTrip(null)}>ยกเลิก</button>
+                      </>
+                    ) : (
+                      <button className="btn btn-ghost xs danger" title="ลบเที่ยวรถนี้" onClick={() => setConfirmDelTrip(t.id)}>🗑️ ลบเที่ยว</button>
+                    )}
                   </div>
 
                   {active && (
@@ -412,6 +450,15 @@ export default function Planning({
       <OrderDetail order={detail} onClose={() => setDetail(null)} />
 
       {mapTrip && <MapModal orders={orders} trip={mapTrip} onClose={() => setMapTrip(null)} />}
+
+      {showTripModal && (
+        <TripModal
+          drivers={drivers}
+          zones={zones}
+          onClose={() => setShowTripModal(false)}
+          onCreate={async (input) => { await onCreateTrip(input); setShowTripModal(false); }}
+        />
+      )}
     </>
   );
 }

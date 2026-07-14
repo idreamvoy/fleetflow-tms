@@ -23,6 +23,7 @@ import type {
   PodInput,
   DriverPerformance,
   NewDriver,
+  NewZone,
 } from './types';
 
 const URL = import.meta.env.VITE_SUPABASE_URL as string | undefined;
@@ -63,6 +64,8 @@ export const DEMO_ZONES: Zone[] = [
   { id: 1, name: 'กรุงเทพฯ & ปริมณฑล', color: '#6366f1' },
   { id: 2, name: 'ต่างจังหวัด', color: '#f59e0b' },
 ];
+// สำเนาแก้ไขได้สำหรับโหมด Demo (หน้าตั้งค่า → โซน)
+let demoZones: Zone[] = DEMO_ZONES.map((z) => ({ ...z }));
 
 export const DEMO_DRIVERS: Driver[] = [
   { id: 1, name: 'สมชาย ก.', phone: '081-111-1111', vehicle: 'บม-1234', is_online: true },
@@ -215,10 +218,37 @@ function estimateDistance(orderCount: number, zoneId: number | null): number {
 // ============================================================
 export const db = {
   async getZones(): Promise<Zone[]> {
-    if (!supabase) return DEMO_ZONES;
+    if (!supabase) return demoZones.map((z) => ({ ...z }));
     const { data, error } = await supabase.from('zones').select('*').order('id');
-    if (error) { console.error('getZones', error); return DEMO_ZONES; }
+    if (error) { console.error('getZones', error); return demoZones.map((z) => ({ ...z })); }
     return data as Zone[];
+  },
+
+  async addZone(input: NewZone): Promise<Zone> {
+    const row = { name: input.name.trim(), color: input.color || '#6366f1' };
+    if (!supabase) {
+      const z: Zone = { id: Math.max(0, ...demoZones.map((x) => x.id)) + 1, ...row };
+      demoZones = [...demoZones, z];
+      return z;
+    }
+    const { data, error } = await supabase.from('zones').insert(row).select().single();
+    if (error) throw error;
+    return data as Zone;
+  },
+
+  async updateZone(id: number, patch: Partial<NewZone>): Promise<void> {
+    const row: Record<string, unknown> = {};
+    if (patch.name !== undefined) row.name = patch.name.trim();
+    if (patch.color !== undefined) row.color = patch.color;
+    if (!supabase) { demoZones = demoZones.map((z) => (z.id === id ? { ...z, ...row } as Zone : z)); return; }
+    const { error } = await supabase.from('zones').update(row).eq('id', id);
+    if (error) throw error;
+  },
+
+  async deleteZone(id: number): Promise<void> {
+    if (!supabase) { demoZones = demoZones.filter((z) => z.id !== id); return; }
+    const { error } = await supabase.from('zones').delete().eq('id', id);
+    if (error) throw error;
   },
 
   async getDrivers(): Promise<Driver[]> {
@@ -445,18 +475,20 @@ export const db = {
     })) as Trip[];
   },
 
-  async createTrip(input: { driver_id: number | null; zone_id: number | null; order_ids: number[] }): Promise<Trip> {
+  async createTrip(input: { driver_id: number | null; zone_id: number | null; order_ids: number[]; vehicle_type?: string; capacity_boxes?: number }): Promise<Trip> {
     const distance = estimateDistance(input.order_ids.length, input.zone_id);
+    const vehicle_type = input.vehicle_type?.trim() || 'รถ 4 ล้อ';
+    const capacity_boxes = input.capacity_boxes && input.capacity_boxes > 0 ? input.capacity_boxes : 120;
     if (!supabase) {
-      const driver = DEMO_DRIVERS.find((d) => d.id === input.driver_id) ?? null;
-      const zone = DEMO_ZONES.find((z) => z.id === input.zone_id) ?? null;
+      const driver = demoDrivers.find((d) => d.id === input.driver_id) ?? null;
+      const zone = demoZones.find((z) => z.id === input.zone_id) ?? null;
       const trip: Trip = {
         id: Math.max(0, ...demoTrips.map((t) => t.id)) + 1,
         trip_date: new Date().toISOString().slice(0, 10),
         driver_id: input.driver_id, driver_name: driver?.name ?? null,
         zone_id: input.zone_id, zone_name: zone?.name ?? null,
         status: input.driver_id ? 'assigned' : 'planning',
-        vehicle_type: 'รถ 4 ล้อ', capacity_boxes: 120, progress: 0, eta: 'พรุ่งนี้',
+        vehicle_type, capacity_boxes, progress: 0, eta: 'พรุ่งนี้',
         distance_km: distance, order_ids: input.order_ids, created_at: new Date().toISOString(),
       };
       demoTrips = [...demoTrips, trip];
@@ -467,7 +499,7 @@ export const db = {
     }
     const { data: trip, error } = await supabase
       .from('trips')
-      .insert({ trip_date: new Date().toISOString().slice(0, 10), driver_id: input.driver_id, zone_id: input.zone_id, status: input.driver_id ? 'assigned' : 'planning', distance_km: distance })
+      .insert({ trip_date: new Date().toISOString().slice(0, 10), driver_id: input.driver_id, zone_id: input.zone_id, status: input.driver_id ? 'assigned' : 'planning', vehicle_type, capacity_boxes, distance_km: distance })
       .select().single();
     if (error) throw error;
     if (input.order_ids.length) {
@@ -475,6 +507,13 @@ export const db = {
       await supabase.from('orders').update({ status: 'waiting_ship' }).in('id', input.order_ids);
     }
     return { ...(trip as any), order_ids: input.order_ids } as Trip;
+  },
+
+  async deleteTrip(id: number): Promise<void> {
+    if (!supabase) { demoTrips = demoTrips.filter((t) => t.id !== id); return; }
+    // ปล่อยออเดอร์กลับไปรอจัดรถก่อนลบ (trip_stops จะถูกลบ cascade)
+    const { error } = await supabase.from('trips').delete().eq('id', id);
+    if (error) throw error;
   },
 
   async updateTripStatus(id: number, status: TripStatus): Promise<void> {

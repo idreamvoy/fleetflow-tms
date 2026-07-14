@@ -12,7 +12,7 @@ import OrderModal from './components/OrderModal';
 import PodModal from './components/PodModal';
 import ImportModal from './components/ImportModal';
 import { db, IS_SUPABASE_CONFIGURED } from './lib/supabase';
-import type { Order, Zone, Driver, Trip, StatusMovement, StatusEvent, NewOrder, OrderStatus, PodInput, NewDriver } from './lib/types';
+import type { Order, Zone, Driver, Trip, StatusMovement, StatusEvent, NewOrder, OrderStatus, PodInput, NewDriver, NewZone, TripStatus } from './lib/types';
 
 const PAGE_META: Record<PageKey, { title: string; subtitle: string }> = {
   dashboard: { title: 'Dashboard', subtitle: 'ภาพรวมระบบ · ศูนย์ควบคุมการจัดส่ง' },
@@ -176,6 +176,38 @@ export default function App() {
     }
   }
 
+  async function handleSaveZone(data: NewZone, id?: number) {
+    if (id) { await db.updateZone(id, data); flash('บันทึกโซนแล้ว ✓'); }
+    else { await db.addZone(data); flash('เพิ่มโซนสำเร็จ ✓'); }
+    await loadAll();
+  }
+  async function handleDeleteZone(id: number) {
+    try {
+      await db.deleteZone(id);
+      setZones((prev) => prev.filter((z) => z.id !== id));
+      flash('ลบโซนแล้ว');
+    } catch (e: any) {
+      const fk = e?.code === '23503' || /foreign key|violat/i.test(e?.message ?? '');
+      flash(fk ? 'ลบไม่ได้ — โซนนี้ยังมีออเดอร์/เที่ยวใช้อยู่' : 'ลบไม่สำเร็จ');
+    }
+  }
+
+  async function handleCreateTrip(input: { driver_id: number | null; zone_id: number | null; vehicle_type: string; capacity_boxes: number }) {
+    await db.createTrip({ ...input, order_ids: [] });
+    await loadAll();
+    flash('สร้างเที่ยวรถใหม่แล้ว ✓');
+  }
+  async function handleSetTripStatus(tripId: number, status: TripStatus) {
+    await db.updateTripStatus(tripId, status);
+    setTrips((prev) => prev.map((t) => (t.id === tripId ? { ...t, status } : t)));
+    flash(`อัปเดตสถานะ TR-${String(tripId).padStart(2, '0')} แล้ว ✓`);
+  }
+  async function handleDeleteTrip(tripId: number) {
+    await db.deleteTrip(tripId);
+    await loadAll();
+    flash(`ลบเที่ยว TR-${String(tripId).padStart(2, '0')} แล้ว`);
+  }
+
   // ตัวเลข badge/สถานะจริง (แทนค่าคงที่)
   const assignedTripIds = new Set(trips.flatMap((t) => t.order_ids));
   const WAITING = ['ready', 'cod_waiting', 'cod_transferred', 'oem'];
@@ -221,13 +253,13 @@ export default function App() {
           ) : page === 'orders' ? (
             <Orders orders={filteredOrders} onAdd={openAdd} onImport={() => setShowImport(true)} onEdit={openEdit} onStatusChange={handleStatusChange} onDelete={handleDelete} />
           ) : page === 'planning' ? (
-            <Planning orders={orders} trips={trips} drivers={drivers} onAssign={handleAssign} onUnassign={handleUnassign} onReorder={handleReorder} onSetTripDriver={handleSetTripDriver} />
+            <Planning orders={orders} trips={trips} drivers={drivers} zones={zones} onAssign={handleAssign} onUnassign={handleUnassign} onReorder={handleReorder} onSetTripDriver={handleSetTripDriver} onCreateTrip={handleCreateTrip} onSetTripStatus={handleSetTripStatus} onDeleteTrip={handleDeleteTrip} />
           ) : page === 'tracking' ? (
             <Tracking trips={trips} orders={orders} />
           ) : page === 'driver' ? (
             <DriverApp drivers={drivers} trips={trips} orders={orders} onOpenPod={openPod} />
           ) : page === 'settings' ? (
-            <Settings drivers={drivers} onSave={handleSaveDriver} onDelete={handleDeleteDriver} onToggleOnline={handleToggleDriverOnline} />
+            <Settings drivers={drivers} zones={zones} onSaveDriver={handleSaveDriver} onDeleteDriver={handleDeleteDriver} onToggleOnline={handleToggleDriverOnline} onSaveZone={handleSaveZone} onDeleteZone={handleDeleteZone} />
           ) : (
             <Reports orders={orders} movements={movements} drivers={drivers} trips={trips} history={history} />
           )}
