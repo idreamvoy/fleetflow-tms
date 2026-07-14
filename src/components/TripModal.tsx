@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { Driver, Zone } from '../lib/types';
 
-const VEHICLE_PRESETS = ['รถ 4 ล้อ', 'รถ 6 ล้อ', 'รถกระบะ', 'รถตู้', 'รถขนส่งภายนอก'];
+const VEHICLE_PRESETS = ['รถ 4 ล้อ', 'รถ 6 ล้อ', 'รถ 10 ล้อ', 'รถ 12 ล้อ'];
 
 export default function TripModal({
   drivers,

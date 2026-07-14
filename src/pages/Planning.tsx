@@ -6,14 +6,16 @@ import OrderDetail from '../components/OrderDetail';
 import MapModal from '../components/MapModal';
 import TripModal from '../components/TripModal';
 
-const TRIP_STATUS_FLOW: TripStatus[] = ['planning', 'assigned', 'in_progress', 'completed'];
 const shortZone = (name?: string | null) => {
   const n = name ?? '';
   if (/กทม|กรุงเทพ|ปริมณฑล/.test(n)) return 'กทม.';
   if (/ต่างประเทศ/.test(n)) return 'ต่างประเทศ';
+  if (/ทั่วไป/.test(n)) return 'ทั่วไป';
   if (/ต่างจังหวัด|ตจว/.test(n)) return 'ต่างจังหวัด';
   return n || '—';
 };
+// ชื่อเที่ยว = ชื่อคนขับ (แทนการนับ TR-xx) — ยังไม่ระบุ ใช้ 'เที่ยว #id'
+const tripLabel = (t: Trip) => t.driver_name || `เที่ยว #${t.id}`;
 import { geocode, optimizeOrder, routePlan, fmtClock, fmtDuration, WAREHOUSE, haversine } from '../lib/geo';
 
 const WAREHOUSE_ORIGIN = `${WAREHOUSE.lat},${WAREHOUSE.lng}`; // คลังเนเจอร์ทัช
@@ -75,6 +77,7 @@ export default function Planning({
   const [sortByDistance, setSortByDistance] = useState(false);
   const [showTripModal, setShowTripModal] = useState(false);
   const [confirmDelTrip, setConfirmDelTrip] = useState<number | null>(null);
+  const selTrip = trips.find((t) => t.id === selectedTrip);
 
   // ---- ตัวกรองวัน: ใช้กับทั้งออเดอร์รอจัด + จุดส่งในเที่ยว ----
   const dayMatch = (o: Order) => day === 'all' || o.ship_date === day;
@@ -282,7 +285,7 @@ export default function Planning({
                       <div className="wait-meta">
                         <span className="wait-chip">📍 {getDistance(o)} กม.</span>
                         {rec ? (
-                          <span className="wait-chip rec">💡 แนะนำ TR-{String(rec.id).padStart(2, '0')}</span>
+                          <span className="wait-chip rec">💡 แนะนำ {tripLabel(rec)}</span>
                         ) : (
                           <span className="wait-chip warn">⚠️ ไม่มีรถว่างพอ</span>
                         )}
@@ -290,7 +293,7 @@ export default function Planning({
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignSelf: 'center' }}>
                       <button className="btn btn-primary" style={{ whiteSpace: 'nowrap' }} disabled={busy === o.id || !selectedTrip} onClick={() => assign(o.id, selectedTrip)}>
-                        {busy === o.id ? '…' : `จัดเข้า TR-${String(selectedTrip).padStart(2, '0')}`}
+                        {busy === o.id ? '…' : `จัดเข้า ${selTrip ? tripLabel(selTrip) : 'เที่ยว'}`}
                       </button>
                       {rec && rec.id !== selectedTrip && (
                         <button className="btn btn-ghost mini" disabled={busy === o.id} onClick={() => assign(o.id, rec.id)}>
@@ -333,11 +336,10 @@ export default function Planning({
                   <div className="plan-trip-head">
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontWeight: 700, display: 'flex', gap: 8, alignItems: 'center' }}>
-                        TR-{String(t.id).padStart(2, '0')}
+                        {tripLabel(t)}
                         <span className="zone-pill">{shortZone(t.zone_name)}</span>
-                        <span className={`badge trip-badge ${t.status}`}>{TRIP_STATUS_LABEL[t.status]}</span>
                       </div>
-                      <div className="sub" style={{ color: '#94a3b8' }}>{t.vehicle_type} · {t.driver_name ?? 'ยังไม่ระบุคนขับ'}</div>
+                      <div className="sub" style={{ color: '#94a3b8' }}>{t.vehicle_type}</div>
                       <div className="cap-note" style={{ color: over ? 'var(--rose)' : '#64748b' }}>
                         {used} / {t.capacity_boxes} กล่อง · {over ? `เกิน ${pct - 100}%` : `รับเพิ่มได้ ${t.capacity_boxes - used}`}
                       </div>
@@ -353,17 +355,8 @@ export default function Planning({
                     <CapGauge pct={pct} color={capColor} />
                   </div>
 
-                  {/* toolbar: ขนส่ง + คำนวณ + จัดลำดับ + แผนที่ */}
+                  {/* toolbar: จัดลำดับ + แผนที่ + ลบ */}
                   <div className="trip-toolbar" onClick={(e) => e.stopPropagation()}>
-                    <label className="trip-carrier">
-                      <span>คนขับ</span>
-                      <select value={t.driver_id ?? ''} onChange={(e) => onSetTripDriver(t.id, e.target.value ? Number(e.target.value) : null)}>
-                        <option value="">— ยังไม่ระบุ —</option>
-                        {drivers.map((d) => (
-                          <option key={d.id} value={d.id}>{d.name}{d.vehicle ? ` · ${d.vehicle}` : ''}</option>
-                        ))}
-                      </select>
-                    </label>
                     <button className="btn btn-ghost xs" disabled={stops.length < 2} onClick={() => optimize(t)} title="จัดลำดับจุดส่งให้สั้นที่สุด">
                       <IconRoute width={15} height={15} /> จัดลำดับ
                     </button>
@@ -371,12 +364,6 @@ export default function Planning({
                       🗺️ แผนที่
                     </button>
                     <button className="btn btn-ghost xs" disabled={!stops.length} onClick={() => openMaps(t)}>Google</button>
-                    <label className="trip-carrier">
-                      <span>สถานะ</span>
-                      <select value={t.status} onChange={(e) => onSetTripStatus(t.id, e.target.value as TripStatus)}>
-                        {TRIP_STATUS_FLOW.map((s) => <option key={s} value={s}>{TRIP_STATUS_LABEL[s]}</option>)}
-                      </select>
-                    </label>
                     {confirmDelTrip === t.id ? (
                       <>
                         <button className="btn btn-ghost xs danger" onClick={async () => { await onDeleteTrip(t.id); setConfirmDelTrip(null); }}>ยืนยันลบ</button>
@@ -389,15 +376,6 @@ export default function Planning({
 
                   {active && (
                     <>
-                      {/* สรุปเส้นทาง (3 ช่อง) */}
-                      {plan && stops.length > 0 && (
-                        <div className="route-summary">
-                          <div><span className="rs-val">~{plan.totalKm}</span><span className="rs-label">กม. รวม</span></div>
-                          <div><span className="rs-val">~{fmtDuration(plan.totalMin)}</span><span className="rs-label">เวลาเดินทาง</span></div>
-                          <div><span className="rs-val">{fmtClock(plan.legs[plan.legs.length - 1].etaMin)}</span><span className="rs-label">ถึงจุดท้าย</span></div>
-                        </div>
-                      )}
-
                       {/* ไทม์ไลน์จุดส่ง (ลากวางได้) */}
                       {stops.length === 0 ? (
                         <div className="sub" style={{ color: '#94a3b8', padding: '10px 2px' }}>ยังไม่มีจุดส่งในวันนี้ — จัดออเดอร์เข้าเที่ยวนี้ได้</div>
@@ -423,7 +401,7 @@ export default function Planning({
                                     {isUrgent(o) && <span className="warn-tag urgent">🔥</span>}
                                   </div>
                                   <div className="sub" style={{ color: '#94a3b8' }}>{o.delivery_location} · {o.box_count} กล่อง</div>
-                                  {plan && <div className="stop-eta">ถึง ~{fmtClock(plan.legs[i].etaMin)} · {plan.legs[i].km} กม.</div>}
+                                  {plan && <div className="stop-eta">ระยะ {plan.legs[i].km} กม.</div>}
                                 </div>
                                 <button className="stop-remove" title="นำออกจากเที่ยว" disabled={busy === o.id} onClick={(e) => { e.stopPropagation(); unassign(o.id, t.id); }}>×</button>
                               </div>
@@ -434,9 +412,8 @@ export default function Planning({
 
                       {/* manifest */}
                       <div className="manifest">
-                        <span>รวม <b>{used}</b> กล่อง · <b>{stops.length}</b> จุด</span>
+                        <span>รวม <b>{used}</b> กล่อง · <b>{stops.length}</b> จุด{plan && stops.length > 0 ? <> · ระยะ ~<b>{plan.totalKm}</b> กม.</> : null}</span>
                         <span>COD รวม <b>฿{codTotal.toLocaleString()}</b></span>
-                        <span className="sub" style={{ color: 'var(--indigo)', fontWeight: 600 }}>{TRIP_STATUS_LABEL[t.status]}</span>
                       </div>
                     </>
                   )}
