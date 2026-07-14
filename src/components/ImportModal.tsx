@@ -1,7 +1,9 @@
 import { useRef, useState } from 'react';
-import type { NewOrder, Zone } from '../lib/types';
-import { downloadOrderTemplate, parseOrdersFromExcel, type ParseResult } from '../lib/orderExcel';
+import type { NewOrder, Zone, ShippingMethod } from '../lib/types';
+import { downloadOrderTemplate, parseOrdersFromExcel, parsePastedOrders, type ParseResult } from '../lib/orderExcel';
 import { IconDownload } from './icons';
+
+type Method = 'file' | 'paste';
 
 export default function ImportModal({
   zones,
@@ -13,10 +15,13 @@ export default function ImportModal({
   onImport: (orders: NewOrder[]) => Promise<void>;
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
+  const [method, setMethod] = useState<Method>('paste');
   const [result, setResult] = useState<ParseResult | null>(null);
   const [fileName, setFileName] = useState('');
   const [busy, setBusy] = useState(false);
   const [parsing, setParsing] = useState(false);
+  const [pasteText, setPasteText] = useState('');
+  const [shipping, setShipping] = useState<ShippingMethod>('shipping');
 
   const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -33,6 +38,18 @@ export default function ImportModal({
     }
   };
 
+  const handlePaste = (text: string) => {
+    setPasteText(text);
+    if (!text.trim()) { setResult(null); return; }
+    setResult(parsePastedOrders(text, zones, shipping));
+  };
+  const changeShipping = (m: ShippingMethod) => {
+    setShipping(m);
+    if (pasteText.trim()) setResult(parsePastedOrders(pasteText, zones, m));
+  };
+
+  const switchMethod = (m: Method) => { setMethod(m); setResult(null); setFileName(''); };
+
   const confirm = async () => {
     if (!result?.orders.length) return;
     setBusy(true);
@@ -47,37 +64,70 @@ export default function ImportModal({
 
   return (
     <div className="overlay" onClick={onClose}>
-      <div className="modal" style={{ maxWidth: 640 }} onClick={(e) => e.stopPropagation()}>
+      <div className="modal" style={{ maxWidth: 680 }} onClick={(e) => e.stopPropagation()}>
         <div className="modal-head">
-          <h3>นำเข้าออเดอร์จาก Excel</h3>
+          <h3>นำเข้าออเดอร์</h3>
           <button className="close-x" onClick={onClose}>×</button>
         </div>
 
-        <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
-          {/* ขั้นที่ 1: ดาวน์โหลด template */}
-          <div className="imp-step">
-            <div className="imp-step-num">1</div>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontWeight: 600 }}>ดาวน์โหลดไฟล์ Template</div>
-              <div className="sub" style={{ color: '#94a3b8' }}>กรอกออเดอร์ในไฟล์นี้ · มีตัวอย่าง + คู่มือให้ในไฟล์</div>
-            </div>
-            <button className="btn btn-ghost" style={{ color: '#059669', borderColor: '#a7f3d0' }} onClick={() => downloadOrderTemplate(zones)}>
-              <IconDownload width={16} height={16} /> ดาวน์โหลด
+        <div style={{ padding: '18px 24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {/* เลือกวิธี */}
+          <div className="tabs">
+            <button className={`tab${method === 'paste' ? ' active' : ''}`} onClick={() => switchMethod('paste')}>
+              📋 วางจาก Excel (Copy ตรงจากไฟล์บริษัท)
+            </button>
+            <button className={`tab${method === 'file' ? ' active' : ''}`} onClick={() => switchMethod('file')}>
+              📁 อัปโหลดไฟล์
             </button>
           </div>
 
-          {/* ขั้นที่ 2: เลือกไฟล์ */}
-          <div className="imp-step">
-            <div className="imp-step-num">2</div>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontWeight: 600 }}>เลือกไฟล์ที่กรอกแล้ว</div>
-              <div className="sub" style={{ color: '#94a3b8' }}>{fileName || 'รองรับ .xlsx / .xls / .csv'}</div>
-            </div>
-            <button className="btn btn-primary" disabled={parsing} onClick={() => fileRef.current?.click()}>
-              {parsing ? 'กำลังอ่าน…' : 'เลือกไฟล์ Excel'}
-            </button>
-            <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" hidden onChange={handleFile} />
-          </div>
+          {method === 'paste' ? (
+            <>
+              <div className="imp-hint">
+                เปิดไฟล์ Excel ของบริษัท → เลือกคลุมตั้งแต่คอลัมน์ <b>โรงแรม/รพ. (A) ถึง ที่อยู่ขนส่ง (I)</b> ทุกแถวของออเดอร์ที่ต้องการ → กด <b>Ctrl+C</b> แล้ววางในช่องนี้ · ระบบรวมที่อยู่หลายบรรทัดให้อัตโนมัติ
+              </div>
+              <div className="field">
+                <label>วิธีจัดส่งเริ่มต้น <span className="sub" style={{ fontWeight: 400 }}>(ถ้าในข้อมูลมีหัวข้อ “ส่งสินค้าทาง…” ระบบจะใช้ตามนั้นแทน)</span></label>
+                <div className="seg">
+                  <button type="button" className={`seg-btn${shipping === 'shipping' ? ' active' : ''}`} onClick={() => changeShipping('shipping')}>ขนส่ง</button>
+                  <button type="button" className={`seg-btn${shipping === 'company' ? ' active' : ''}`} onClick={() => changeShipping('company')}>ขนส่งบริษัท</button>
+                </div>
+              </div>
+              <textarea
+                className="imp-paste"
+                value={pasteText}
+                onChange={(e) => handlePaste(e.target.value)}
+                placeholder="วางข้อมูลที่ Copy จาก Excel ที่นี่…"
+                rows={7}
+              />
+            </>
+          ) : (
+            <>
+              {/* ขั้นที่ 1: ดาวน์โหลด template FleetFlow (ทางเลือก) */}
+              <div className="imp-step">
+                <div className="imp-step-num">1</div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 600 }}>ดาวน์โหลด Template (ถ้ายังไม่มีไฟล์)</div>
+                  <div className="sub" style={{ color: '#94a3b8' }}>หรือใช้ไฟล์ Excel เดิมของบริษัทได้เลย — ระบบอ่านได้ทั้งสองแบบ</div>
+                </div>
+                <button className="btn btn-ghost" style={{ color: '#059669', borderColor: '#a7f3d0' }} onClick={() => downloadOrderTemplate(zones)}>
+                  <IconDownload width={16} height={16} /> ดาวน์โหลด
+                </button>
+              </div>
+              {/* ขั้นที่ 2: เลือกไฟล์ */}
+              <div className="imp-step">
+                <div className="imp-step-num">2</div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 600 }}>เลือกไฟล์ Excel</div>
+                  <div className="sub" style={{ color: '#94a3b8' }}>{fileName || 'รองรับ .xlsx / .xls / .csv · ไฟล์บริษัทเดิมก็ได้'}</div>
+                </div>
+                <button className="btn btn-primary" disabled={parsing} onClick={() => fileRef.current?.click()}>
+                  {parsing ? 'กำลังอ่าน…' : 'เลือกไฟล์'}
+                </button>
+                <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" hidden onChange={handleFile} />
+              </div>
+            </>
+          )}
 
           {/* ผลลัพธ์ preview */}
           {result && (
@@ -90,14 +140,15 @@ export default function ImportModal({
 
               {result.orders.length > 0 && (
                 <div className="imp-list">
-                  {result.orders.slice(0, 8).map((o) => (
+                  {result.orders.slice(0, 10).map((o) => (
                     <div key={o.order_no} className="imp-row">
                       <code>{o.order_no}</code>
                       <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{o.customer_name}</span>
+                      <span className="zone-pill" style={{ fontSize: 11 }}>{o.shipping_method === 'company' ? 'ขนส่งบริษัท' : 'ขนส่ง'}</span>
                       <span className="sub">{o.items.length} รายการ</span>
                     </div>
                   ))}
-                  {result.orders.length > 8 && <div className="sub" style={{ textAlign: 'center', padding: 4 }}>… และอีก {result.orders.length - 8} ออเดอร์</div>}
+                  {result.orders.length > 10 && <div className="sub" style={{ textAlign: 'center', padding: 4 }}>… และอีก {result.orders.length - 10} ออเดอร์</div>}
                 </div>
               )}
 

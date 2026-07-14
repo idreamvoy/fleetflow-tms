@@ -344,6 +344,12 @@ table.data tbody tr:last-child td { border-bottom: none; }
 .imp-errors { font-size: 13px; }
 .imp-errors summary { cursor: pointer; color: #b45309; font-weight: 600; }
 .imp-err-list { margin-top: 8px; display: flex; flex-direction: column; gap: 3px; max-height: 160px; overflow-y: auto; color: #92400e; font-size: 12px; padding: 8px; background: #fffbeb; border-radius: 8px; }
+.imp-hint { font-size: 13px; color: #475569; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 10px; padding: 10px 12px; line-height: 1.7; }
+.imp-paste { width: 100%; font-family: ui-monospace, 'Cascadia Code', monospace; font-size: 12px; padding: 12px; border: 1px solid var(--border); border-radius: 12px; resize: vertical; line-height: 1.6; }
+.imp-paste:focus { outline: none; border-color: var(--indigo); box-shadow: 0 0 0 3px #6366f122; }
+.seg { display: inline-flex; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+.seg-btn { padding: 7px 16px; font-size: 13px; font-weight: 600; background: #fff; color: #64748b; border: none; cursor: pointer; }
+.seg-btn.active { background: var(--indigo); color: #fff; }
 
 /* POD proof gallery */
 .pod-gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; }
