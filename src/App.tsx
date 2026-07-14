@@ -134,6 +134,13 @@ export default function App() {
     flash(`จัดลำดับจุดส่ง TR-${String(tripId).padStart(2, '0')} แล้ว ✓`);
   }
 
+  async function handleSetTripDriver(tripId: number, driverId: number | null) {
+    await db.updateTripDriver(tripId, driverId);
+    const name = drivers.find((d) => d.id === driverId)?.name ?? null;
+    setTrips((prev) => prev.map((t) => (t.id === tripId ? { ...t, driver_id: driverId, driver_name: name } : t)));
+    flash(name ? `กำหนดคนขับ ${name} ให้ TR-${String(tripId).padStart(2, '0')} ✓` : `เอาคนขับออกจาก TR-${String(tripId).padStart(2, '0')}`);
+  }
+
   function openPod(order: Order, trip: Trip) {
     setPodTarget({ order, trip });
   }
@@ -208,7 +215,7 @@ export default function App() {
           ) : page === 'orders' ? (
             <Orders orders={filteredOrders} onAdd={openAdd} onImport={() => setShowImport(true)} onEdit={openEdit} onStatusChange={handleStatusChange} onDelete={handleDelete} />
           ) : page === 'planning' ? (
-            <Planning orders={orders} trips={trips} onAssign={handleAssign} onUnassign={handleUnassign} onReorder={handleReorder} />
+            <Planning orders={orders} trips={trips} drivers={drivers} onAssign={handleAssign} onUnassign={handleUnassign} onReorder={handleReorder} onSetTripDriver={handleSetTripDriver} />
           ) : page === 'tracking' ? (
             <Tracking trips={trips} orders={orders} />
           ) : page === 'driver' ? (

@@ -483,6 +483,17 @@ export const db = {
     if (error) throw error;
   },
 
+  // กำหนด/เปลี่ยนคนขับให้เที่ยวรถ
+  async updateTripDriver(tripId: number, driverId: number | null): Promise<void> {
+    if (!supabase) {
+      const name = demoDrivers.find((d) => d.id === driverId)?.name ?? null;
+      demoTrips = demoTrips.map((t) => (t.id === tripId ? { ...t, driver_id: driverId, driver_name: name } : t));
+      return;
+    }
+    const { error } = await supabase.from('trips').update({ driver_id: driverId }).eq('id', tripId);
+    if (error) throw error;
+  },
+
   // จัดออเดอร์เข้าเที่ยว
   async assignOrderToTrip(orderId: number, tripId: number): Promise<void> {
     if (!supabase) {

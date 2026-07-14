@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
-import type { Order, Trip, OrderStatus } from '../lib/types';
-import { CARRIERS, TRIP_STATUS_LABEL } from '../lib/types';
+import type { Order, Trip, Driver, OrderStatus } from '../lib/types';
+import { TRIP_STATUS_LABEL } from '../lib/types';
 import { IconRoute, IconPin, IconTruck, IconBox } from '../components/icons';
 import OrderDetail from '../components/OrderDetail';
 import MapModal from '../components/MapModal';
@@ -30,21 +30,24 @@ function CapGauge({ pct, color }: { pct: number; color: string }) {
 export default function Planning({
   orders,
   trips,
+  drivers,
   onAssign,
   onUnassign,
   onReorder,
+  onSetTripDriver,
 }: {
   orders: Order[];
   trips: Trip[];
+  drivers: Driver[];
   onAssign: (orderId: number, tripId: number) => Promise<void>;
   onUnassign: (orderId: number, tripId: number) => Promise<void>;
   onReorder: (tripId: number, orderIds: number[]) => Promise<void>;
+  onSetTripDriver: (tripId: number, driverId: number | null) => Promise<void>;
 }) {
   const assignedIds = useMemo(() => new Set(trips.flatMap((t) => t.order_ids)), [trips]);
   const unassigned = orders.filter((o) => !assignedIds.has(o.id) && WAITING_STATUSES.includes(o.status));
 
   const [selectedTrip, setSelectedTrip] = useState<number>(trips[0]?.id ?? 0);
-  const [carriers, setCarriers] = useState<Record<number, string>>({});
   const [busy, setBusy] = useState<number | null>(null);
   const [busyAll, setBusyAll] = useState(false);
   const [detail, setDetail] = useState<Order | null>(null);
@@ -310,7 +313,7 @@ export default function Planning({
                         TR-{String(t.id).padStart(2, '0')}
                         <span className="zone-pill">{t.zone_id === 1 ? 'กทม.' : 'ต่างจังหวัด'}</span>
                       </div>
-                      <div className="sub" style={{ color: '#94a3b8' }}>{t.vehicle_type} · {t.driver_name}</div>
+                      <div className="sub" style={{ color: '#94a3b8' }}>{t.vehicle_type} · {t.driver_name ?? 'ยังไม่ระบุคนขับ'}</div>
                       <div className="cap-note" style={{ color: over ? 'var(--rose)' : '#64748b' }}>
                         {used} / {t.capacity_boxes} กล่อง · {over ? `เกิน ${pct - 100}%` : `รับเพิ่มได้ ${t.capacity_boxes - used}`}
                       </div>
@@ -329,9 +332,12 @@ export default function Planning({
                   {/* toolbar: ขนส่ง + คำนวณ + จัดลำดับ + แผนที่ */}
                   <div className="trip-toolbar" onClick={(e) => e.stopPropagation()}>
                     <label className="trip-carrier">
-                      <span>ขนส่ง</span>
-                      <select value={carriers[t.id] ?? CARRIERS[0]} onChange={(e) => setCarriers((c) => ({ ...c, [t.id]: e.target.value }))}>
-                        {CARRIERS.map((c) => <option key={c} value={c}>{c}</option>)}
+                      <span>คนขับ</span>
+                      <select value={t.driver_id ?? ''} onChange={(e) => onSetTripDriver(t.id, e.target.value ? Number(e.target.value) : null)}>
+                        <option value="">— ยังไม่ระบุ —</option>
+                        {drivers.map((d) => (
+                          <option key={d.id} value={d.id}>{d.name}{d.vehicle ? ` · ${d.vehicle}` : ''}</option>
+                        ))}
                       </select>
                     </label>
                     <button className="btn btn-ghost xs" disabled={stops.length < 2} onClick={() => optimize(t)} title="จัดลำดับจุดส่งให้สั้นที่สุด">
