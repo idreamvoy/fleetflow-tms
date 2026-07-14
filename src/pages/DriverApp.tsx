@@ -46,9 +46,9 @@ export default function DriverApp({
             >
               <div className="trip-ico"><IconTruck width={20} height={20} /></div>
               <div style={{ flex: 1, textAlign: 'left' }}>
-                <div style={{ fontWeight: 700 }}>TR-{String(t.id).padStart(2, '0')} · {t.driver_name ? drivers.find((d) => d.id === t.driver_id)?.vehicle : '—'}</div>
+                <div style={{ fontWeight: 700 }}>TR-{String(t.id).padStart(2, '0')} · {drivers.find((d) => d.id === t.driver_id)?.vehicle ?? t.vehicle_type}</div>
                 <div className="sub" style={{ color: t.id === tripId ? '#cbd5e1' : '#94a3b8' }}>
-                  {t.driver_name ?? 'ไม่ระบุ'} · {t.zone_name}
+                  {t.driver_name ?? 'ยังไม่ระบุคนขับ'} · {t.zone_name ?? '—'}
                 </div>
               </div>
             </button>
@@ -102,7 +102,10 @@ export default function DriverApp({
                           <div className="stop-prod">{productSummary(o)}</div>
                           {!finished && (
                             <div className="stop-actions">
-                              <button className="stop-btn nav">
+                              <button
+                                className="stop-btn nav"
+                                onClick={() => window.open(`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(o.delivery_location || o.customer_name)}`, '_blank')}
+                              >
                                 <IconPin width={14} height={14} /> นำทาง
                               </button>
                               <button className="stop-btn confirm" onClick={() => onOpenPod(o, trip)}>

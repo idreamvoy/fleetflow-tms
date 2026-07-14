@@ -106,9 +106,6 @@ export interface NewOrder {
   items: NewOrderItem[];
 }
 
-export const CARRIERS = ['รถบริษัท', 'Kerry Express', 'ไปรษณีย์ไทย', 'Flash Express', 'SCG Express'] as const;
-export type Carrier = (typeof CARRIERS)[number];
-
 export const TRIP_STATUS_LABEL: Record<TripStatus, string> = {
   planning: 'รอออกรถ',
   assigned: 'กำลังโหลดสินค้า',

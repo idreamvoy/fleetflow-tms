@@ -9,6 +9,14 @@ const STATUS_CLASS: Record<TripStatus, string> = {
   completed: 't-done',
 };
 
+const shortZone = (name?: string | null) => {
+  const n = name ?? '';
+  if (/กทม|กรุงเทพ|ปริมณฑล/.test(n)) return 'กทม.';
+  if (/ต่างประเทศ/.test(n)) return 'ต่างประเทศ';
+  if (/ต่างจังหวัด|ตจว/.test(n)) return 'ต่างจังหวัด';
+  return n || '—';
+};
+
 export default function Tracking({ trips, orders }: { trips: Trip[]; orders: Order[] }) {
   const running = trips.filter((t) => t.status === 'in_progress').length;
   const now = new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -55,12 +63,12 @@ export default function Tracking({ trips, orders }: { trips: Trip[]; orders: Ord
               <div className="veh-head">
                 <div style={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}>
                   TR-{String(t.id).padStart(2, '0')}
-                  <span className="zone-pill">{t.zone_id === 1 ? 'กทม.' : 'ต่างจังหวัด'}</span>
+                  <span className="zone-pill">{shortZone(t.zone_name)}</span>
                 </div>
                 <span className={`badge ${STATUS_CLASS[t.status]}`}>{TRIP_STATUS_LABEL[t.status]}</span>
               </div>
               <div className="sub" style={{ color: '#64748b' }}>
-                {t.driver_name} · {t.vehicle_type} · ส่งแล้ว {delivered(t)}/{t.order_ids.length} จุด
+                {t.driver_name ?? 'ยังไม่ระบุคนขับ'} · {t.vehicle_type} · ส่งแล้ว {delivered(t)}/{t.order_ids.length} จุด
               </div>
               <div className="veh-prog"><div style={{ width: `${t.progress}%` }} /></div>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>

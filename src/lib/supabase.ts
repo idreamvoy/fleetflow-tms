@@ -532,8 +532,22 @@ export const db = {
   },
 
   async getMovements(): Promise<StatusMovement[]> {
-    // demo: log ตัวอย่าง; ของจริงดึงจาก status_history
-    return [...demoMovements];
+    if (!supabase) return [...demoMovements];
+    const { data, error } = await supabase
+      .from('status_history')
+      .select('id, order_id, status, created_at, orders(order_no), drivers(name)')
+      .order('created_at', { ascending: false })
+      .limit(30);
+    if (error) { console.error('getMovements', error); return []; }
+    const label = (s: string) => REPORT_STATUS.find((r) => r.key === s)?.label ?? s;
+    return (data as any[]).map((h) => ({
+      id: h.id,
+      time: new Date(h.created_at).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }),
+      order_no: h.orders?.order_no ?? `#${h.order_id}`,
+      from_label: 'อัปเดตเป็น',
+      to_label: label(h.status),
+      by: h.drivers?.name ?? '—',
+    }));
   },
 
   async setDriverOnline(id: number, online: boolean): Promise<void> {

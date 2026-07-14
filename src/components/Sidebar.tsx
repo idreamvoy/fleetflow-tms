@@ -6,13 +6,12 @@ interface NavDef {
   key: PageKey;
   label: string;
   icon: (p: any) => JSX.Element;
-  badge?: number;
 }
 
 const NAV: NavDef[] = [
   { key: 'dashboard', label: 'Dashboard', icon: IconGrid },
-  { key: 'planning', label: 'วางแผนจัดส่ง', icon: IconRoute, badge: 4 },
-  { key: 'orders', label: 'ออเดอร์', icon: IconBox, badge: 3 },
+  { key: 'planning', label: 'วางแผนจัดส่ง', icon: IconRoute },
+  { key: 'orders', label: 'ออเดอร์', icon: IconBox },
   { key: 'driver', label: 'Driver app', icon: IconTruck },
   { key: 'tracking', label: 'ติดตามเส้นทาง', icon: IconPin },
   { key: 'reports', label: 'รายงาน', icon: IconChart },
@@ -22,11 +21,13 @@ const NAV: NavDef[] = [
 export default function Sidebar({
   active,
   onNavigate,
-  onlineDrivers,
+  badges,
+  runningTrips,
 }: {
   active: PageKey;
   onNavigate: (k: PageKey) => void;
-  onlineDrivers: number;
+  badges: Partial<Record<PageKey, number>>;
+  runningTrips: number;
 }) {
   const now = new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
   return (
@@ -44,6 +45,7 @@ export default function Sidebar({
       <nav className="nav">
         {NAV.map((n) => {
           const Icon = n.icon;
+          const badge = badges?.[n.key];
           return (
             <button
               key={n.key}
@@ -52,7 +54,7 @@ export default function Sidebar({
             >
               <Icon className="nav-icon" width={20} height={20} />
               <span>{n.label}</span>
-              {n.badge ? <span className="nav-badge">{n.badge}</span> : null}
+              {badge ? <span className="nav-badge">{badge}</span> : null}
             </button>
           );
         })}
@@ -63,7 +65,7 @@ export default function Sidebar({
           <span className="status-dot" />
           ระบบออนไลน์ · Live
         </div>
-        <div className="status-line">รถกำลังวิ่ง {onlineDrivers} คัน</div>
+        <div className="status-line">รถกำลังวิ่ง {runningTrips} คัน</div>
         <div className="status-line">อัปเดตล่าสุด {now}</div>
       </div>
     </aside>

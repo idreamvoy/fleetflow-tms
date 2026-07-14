@@ -176,7 +176,13 @@ export default function App() {
     }
   }
 
-  const onlineDrivers = drivers.filter((d) => d.is_online).length;
+  // ตัวเลข badge/สถานะจริง (แทนค่าคงที่)
+  const assignedTripIds = new Set(trips.flatMap((t) => t.order_ids));
+  const WAITING = ['ready', 'cod_waiting', 'cod_transferred', 'oem'];
+  const planningBadge = orders.filter((o) => !assignedTripIds.has(o.id) && WAITING.includes(o.status)).length;
+  const ordersBadge = orders.filter((o) => o.status === 'unspecified' || o.status === 'failed').length;
+  const runningTrips = trips.filter((t) => t.status === 'in_progress').length;
+  const navBadges = { planning: planningBadge || undefined, orders: ordersBadge || undefined };
 
   const filteredOrders = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -195,7 +201,7 @@ export default function App() {
     <div className="app">
       {navOpen && <div className="nav-scrim" onClick={() => setNavOpen(false)} />}
       <div className={navOpen ? 'sidebar-host open' : 'sidebar-host'}>
-        <Sidebar active={page} onNavigate={navigate} onlineDrivers={onlineDrivers} />
+        <Sidebar active={page} onNavigate={navigate} badges={navBadges} runningTrips={runningTrips} />
       </div>
 
       <div className="main">
