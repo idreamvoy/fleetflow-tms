@@ -18,6 +18,7 @@ export default function TripModal({
   const [driverId, setDriverId] = useState<string>('');
   const [zoneId, setZoneId] = useState<string>(String(zones[0]?.id ?? ''));
   const [vehicle, setVehicle] = useState('รถ 4 ล้อ');
+  const [customVehicle, setCustomVehicle] = useState(false);
   const [capacity, setCapacity] = useState(120);
 
   const submit = async (e: React.FormEvent) => {
@@ -61,10 +62,25 @@ export default function TripModal({
             </div>
             <div className="field">
               <label>ประเภทรถ</label>
-              <input list="veh-presets" value={vehicle} onChange={(e) => setVehicle(e.target.value)} placeholder="เช่น รถ 4 ล้อ" />
-              <datalist id="veh-presets">
-                {VEHICLE_PRESETS.map((v) => <option key={v} value={v} />)}
-              </datalist>
+              <select
+                value={customVehicle ? '__custom__' : vehicle}
+                onChange={(e) => {
+                  if (e.target.value === '__custom__') { setCustomVehicle(true); setVehicle(''); }
+                  else { setCustomVehicle(false); setVehicle(e.target.value); }
+                }}
+              >
+                {VEHICLE_PRESETS.map((v) => <option key={v} value={v}>{v}</option>)}
+                <option value="__custom__">อื่นๆ (พิมพ์เอง)…</option>
+              </select>
+              {customVehicle && (
+                <input
+                  value={vehicle}
+                  onChange={(e) => setVehicle(e.target.value)}
+                  placeholder="เช่น รถขนส่งภายนอก / LALAMOVE"
+                  autoFocus
+                  style={{ marginTop: 8 }}
+                />
+              )}
             </div>
             <div className="field">
               <label>ความจุ (กล่อง)</label>
