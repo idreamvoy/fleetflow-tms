@@ -108,7 +108,7 @@ export default function ImportModal({
                 <div className="imp-step-num">1</div>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontWeight: 600 }}>ดาวน์โหลด Template (ถ้ายังไม่มีไฟล์)</div>
-                  <div className="sub" style={{ color: '#94a3b8' }}>หรือใช้ไฟล์ Excel เดิมของบริษัทได้เลย — ระบบอ่านได้ทั้งสองแบบ</div>
+                  <div className="sub" style={{ color: '#94a3b8' }}>รูปแบบเดียวกับ “ใบสรุปรายการและวันส่งสินค้า” ที่บริษัทใช้อยู่ · หรือใช้ไฟล์เดิมได้เลย</div>
                 </div>
                 <button className="btn btn-ghost" style={{ color: '#059669', borderColor: '#a7f3d0' }} onClick={() => downloadOrderTemplate(zones)}>
                   <IconDownload width={16} height={16} /> ดาวน์โหลด

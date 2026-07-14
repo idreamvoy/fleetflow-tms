@@ -91,43 +91,86 @@ function matchZoneId(label: string, zones: Zone[]): number | null {
 // ============================================================
 // 1) ดาวน์โหลด Template
 // ============================================================
+// หัวคอลัมน์ตาม "ใบสรุปรายการและวันส่งสินค้า" ที่บริษัทใช้จริง (A–I)
+const CO_HEAD = [
+  'โรงแรม / โรงพยาบาล', 'เลขที่ใบสั่งงาน', 'Collection / กลิ่น', 'สินค้า',
+  'จำนวน', 'ชิ้นต่อกล่อง', 'สถานะสินค้า', 'หมายเหตุ', 'ที่อยู่ขนส่ง',
+];
+const BLANK = ['', '', '', '', '', '', '', '', ''];
+
+// แถวข้อมูลของ Sheet 1 (แยกออกมาเพื่อทดสอบว่า template ที่แจก นำกลับเข้าระบบได้จริง)
+export function buildCompanyTemplateAoa(): (string | number)[][] {
+  return [
+    ['ใบสรุปรายการและวันส่งสินค้า'],
+    BLANK,
+    ['ส่งสินค้าทางขนส่ง'],
+    CO_HEAD,
+    // ตัวอย่างที่ 1 — มีเลขใบสั่งงาน + วันส่งใต้เลขใบสั่งงาน + ที่อยู่ 3 บรรทัด
+    ['บจ.ตัวอย่าง รีสอร์ท', 'SO2607060013', 'Rejuvenate', 'Rejuvenate Shower Gel 10 Liters', 1, 1, 'ยังไม่ระบุ', '', 'เล็ตส์ ซี หัวหิน อัลเฟรสโก้ รีสอร์ท'],
+    ['', '6-Jul', '', '', '', '', '', '', '83/155 ซ.หมู่บ้านหนองแก ต.หนองแก อ.หัวหิน'],
+    ['', '', '', '', '', '', '', '', 'จ.ประจวบคีรีขันธ์ 77110'],
+    ['', '', '', '', '', '', '', '', 'โทร 032-536888, 098-0100-289'],
+    BLANK,
+    // ตัวอย่างที่ 2 — ไม่มีเลขใบสั่งงาน + มีหมายเหตุใต้ชื่อลูกค้า + เก็บเงินปลายทาง
+    ['บจก.ตัวอย่าง แซค', '', 'Melody Bloom', 'Melody Bloom Bath & Shower Gel 10 Liters', 2, 1, 'ยังไม่ระบุ', '', 'ทีบีพาร์ท (เก็บเงินปลายทาง)'],
+    ['30/6 โอนเงินแล้ว', '30-Jun', '', '', '', '', '', '', 'หมู่ที่ 4 ต.ปากน้ำปราณ อ.ปราณบุรี จ.ประจวบคีรีขันธ์ 77220'],
+    ['', '', '', '', '', '', '', '', 'ติดต่อ คุณภาคภูมิ โทร 088-814-1111'],
+    BLANK,
+    // ตัวอย่างที่ 3 — ออเดอร์เดียวมีหลายสินค้า (แถวสินค้าถัดไปเว้นคอลัมน์ A ไว้)
+    ['รพ.ตัวอย่าง', 'SO2607070006', 'Housekeeping', 'ผ้าปูที่นอน 6 ฟุต', 240, 6, 'พร้อมส่ง', '', '33 ถ.สุขุมวิท เขตวัฒนา กทม. 10110'],
+    ['', '7-Jul', 'Spa & Bath', 'ผ้าเช็ดตัว 27x54', 40, 10, '', 'ด่วน', 'โทร 02-123-4567'],
+    BLANK,
+    ['ส่งสินค้าทางบริษัท'],
+    CO_HEAD,
+    ['โรงแรมตัวอย่าง', 'SO2607070010', 'Hotel Premium', 'ปลอกหมอน', 120, 10, 'พร้อมส่ง', '', 'ปทุมวัน กทม. 10330'],
+    ['', '8-Jul', '', '', '', '', '', '', 'โทร 02-999-8888'],
+  ];
+}
+
 export function downloadOrderTemplate(zones: Zone[]) {
   const wb = XLSX.utils.book_new();
 
-  // --- Sheet 1: ออเดอร์ (หัว + ตัวอย่าง 3 แถว = 2 ออเดอร์) ---
-  const example: Record<string, string | number>[] = [
-    { [COLS.order_no]: 'SO-6907-101', [COLS.customer_name]: 'โรงแรมตัวอย่าง', [COLS.delivery_location]: 'ปทุมวัน กทม.', [COLS.shipping_method]: 'ขนส่งบริษัท', [COLS.zone]: 'กทม.', [COLS.status]: 'พร้อมส่ง', [COLS.cod_amount]: 0, [COLS.ship_date]: '2026-07-15', [COLS.collection]: 'Hotel Premium', [COLS.product_name]: 'ผ้าปูที่นอน 6 ฟุต', [COLS.qty]: 240, [COLS.pieces_per_box]: 6, [COLS.note]: '' },
-    { [COLS.order_no]: 'SO-6907-101', [COLS.customer_name]: 'โรงแรมตัวอย่าง', [COLS.delivery_location]: 'ปทุมวัน กทม.', [COLS.shipping_method]: 'ขนส่งบริษัท', [COLS.zone]: 'กทม.', [COLS.status]: 'พร้อมส่ง', [COLS.cod_amount]: 0, [COLS.ship_date]: '2026-07-15', [COLS.collection]: 'Spa & Bath', [COLS.product_name]: 'ผ้าเช็ดตัว 27x54', [COLS.qty]: 40, [COLS.pieces_per_box]: 10, [COLS.note]: 'ด่วน' },
-    { [COLS.order_no]: 'SO-6907-102', [COLS.customer_name]: 'รพ.ตัวอย่าง', [COLS.delivery_location]: 'อ.เมือง ชลบุรี', [COLS.shipping_method]: 'ขนส่ง', [COLS.zone]: 'ต่างจังหวัด', [COLS.status]: 'รอโอน', [COLS.cod_amount]: 4200, [COLS.ship_date]: '', [COLS.collection]: 'Medical Care', [COLS.product_name]: 'ชุดผู้ป่วย ไซส์ L', [COLS.qty]: 120, [COLS.pieces_per_box]: 6, [COLS.note]: '' },
+  // --- Sheet 1: หน้าตาเหมือนไฟล์บริษัท (1 ออเดอร์ = หลายแถว, ที่อยู่แตกบรรทัดได้) ---
+  const ws = XLSX.utils.aoa_to_sheet(buildCompanyTemplateAoa());
+  ws['!cols'] = [{ wch: 26 }, { wch: 16 }, { wch: 18 }, { wch: 36 }, { wch: 8 }, { wch: 11 }, { wch: 13 }, { wch: 14 }, { wch: 46 }];
+  ws['!merges'] = [
+    { s: { r: 0, c: 0 }, e: { r: 0, c: 8 } }, // ชื่อเรื่อง
+    { s: { r: 2, c: 0 }, e: { r: 2, c: 8 } }, // ส่งสินค้าทางขนส่ง
+    { s: { r: 15, c: 0 }, e: { r: 15, c: 8 } }, // ส่งสินค้าทางบริษัท
   ];
-  const ws = XLSX.utils.json_to_sheet(example, { header: HEADERS });
-  ws['!cols'] = HEADERS.map((h) => ({ wch: Math.max(14, h.length + 2) }));
-  XLSX.utils.book_append_sheet(wb, ws, 'ออเดอร์');
+  XLSX.utils.book_append_sheet(wb, ws, 'ใบสรุปรายการ');
 
-  // --- Sheet 2: คู่มือ / ตัวเลือกที่ใช้ได้ ---
+  // --- Sheet 2: คู่มือ ---
   const guide: (string | number)[][] = [
-    ['📋 วิธีใช้ Template นำเข้าออเดอร์'],
+    ['📋 วิธีใช้ — Template นี้ใช้รูปแบบเดียวกับ "ใบสรุปรายการและวันส่งสินค้า" ของบริษัท'],
     [''],
-    ['1. กรอกข้อมูลในชีต "ออเดอร์" — 1 แถว = 1 รายการสินค้า'],
-    ['2. ถ้าออเดอร์เดียวมีหลายสินค้า → ใส่ "เลขที่ใบสั่งงาน" เดียวกันในทุกแถว (กรอกหัวออเดอร์ซ้ำได้)'],
-    ['3. คอลัมน์ที่มี * = จำเป็นต้องกรอก'],
-    ['4. ลบ 3 แถวตัวอย่างออกก่อนกรอกจริง (หรือกรอกทับได้เลย)'],
-    ['5. บันทึกไฟล์ แล้วกด "เลือกไฟล์ Excel" ในระบบเพื่อนำเข้า'],
+    ['1. กรอกในชีต "ใบสรุปรายการ" ตามตัวอย่าง (ลบตัวอย่างออก หรือกรอกทับได้เลย)'],
+    ['2. 1 ออเดอร์ = 1 บล็อก · คั่นแต่ละออเดอร์ด้วยแถวว่าง 1 แถว'],
+    ['3. ที่อยู่ (คอลัมน์ I) แตกได้หลายบรรทัด — ระบบจะรวมให้เป็นที่อยู่เดียว'],
+    ['4. ถ้าออเดอร์เดียวมีหลายสินค้า → เพิ่มแถวสินค้าใต้กัน โดยเว้นคอลัมน์ A (ชื่อลูกค้า) ไว้'],
+    ['5. บันทึกไฟล์ แล้วกด "เลือกไฟล์" ในระบบ — หรือ Copy คอลัมน์ A ถึง I แล้ววางในแท็บ "วางจาก Excel"'],
     [''],
-    ['── ค่าที่ใช้ได้ในแต่ละคอลัมน์ ──'],
+    ['── ระบบอ่านแต่ละคอลัมน์อย่างไร ──'],
     [''],
-    ['วิธีจัดส่ง', 'ขนส่งบริษัท, ขนส่ง'],
-    ['โซน', zones.map((z) => z.name).join(', ') || 'กทม., ต่างจังหวัด'],
-    ['สถานะ', Object.values(STATUS_LABEL).join(', ')],
-    ['กลุ่มสินค้า', 'คีย์เองได้ตามต้องการ · ตัวอย่าง: ' + COLLECTIONS.join(', ')],
-    ['กำหนดจัดส่ง', 'รูปแบบ ปปปป-ดด-วว เช่น 2026-07-15 · เว้นว่างได้ (ไม่ระบุ)'],
-    ['จำนวน / ชิ้นต่อกล่อง', 'ตัวเลขเท่านั้น · ระบบจะคำนวณจำนวนกล่องให้อัตโนมัติ'],
+    ['A · โรงแรม / โรงพยาบาล', 'บรรทัดแรก = ชื่อลูกค้า · บรรทัดถัดไป = หมายเหตุ (เช่น "30/6 โอนเงินแล้ว")'],
+    ['B · เลขที่ใบสั่งงาน', 'ใส่เลข SO… = เลขใบสั่งงาน · ใส่วันที่ (เช่น 6-Jul) = กำหนดส่ง · ใส่ทั้งคู่คนละบรรทัดได้'],
+    ['C · Collection / กลิ่น', 'คีย์เองได้ตามต้องการ · ตัวอย่าง: ' + COLLECTIONS.join(', ')],
+    ['D · สินค้า', 'ชื่อสินค้า (จำเป็น)'],
+    ['E · จำนวน', 'ตัวเลข (จำเป็น)'],
+    ['F · ชิ้นต่อกล่อง', 'ตัวเลข · ระบบคำนวณจำนวนกล่องให้อัตโนมัติ'],
+    ['G · สถานะสินค้า', Object.values(STATUS_LABEL).join(', ') + ' (เว้นว่าง = ยังไม่ระบุ)'],
+    ['H · หมายเหตุ', 'อิสระ'],
+    ['I · ที่อยู่ขนส่ง', 'หลายบรรทัดได้ · ระบบเดาโซนจากที่อยู่ และจับคำว่า "เก็บเงินปลายทาง" เป็น COD'],
+    [''],
+    ['หัวข้อ "ส่งสินค้าทาง…"', 'ส่งสินค้าทางขนส่ง = ขนส่ง · ส่งสินค้าทางบริษัท = ขนส่งบริษัท'],
+    ['โซนที่มีในระบบ', zones.map((z) => z.name).join(', ') || 'กทม., ต่างจังหวัด'],
+    ['ไม่ใส่เลขใบสั่งงาน', 'ระบบจะตั้งเลขชั่วคราวให้ (TMP-001, TMP-002 …)'],
   ];
   const wsGuide = XLSX.utils.aoa_to_sheet(guide);
-  wsGuide['!cols'] = [{ wch: 26 }, { wch: 80 }];
+  wsGuide['!cols'] = [{ wch: 24 }, { wch: 92 }];
   XLSX.utils.book_append_sheet(wb, wsGuide, 'คู่มือ');
 
-  XLSX.writeFile(wb, `FleetFlow-Template-ออเดอร์-${new Date().toISOString().slice(0, 10)}.xlsx`);
+  XLSX.writeFile(wb, `ใบสรุปรายการและวันส่งสินค้า-${new Date().toISOString().slice(0, 10)}.xlsx`);
 }
 
 // ============================================================
@@ -217,7 +260,15 @@ export function parseCompanyGrid(grid: unknown[][], zones: Zone[], defaultShippi
   const cell = (r: unknown[] | undefined, c: number) => s(r?.[c]);
   const rowEmpty = (r: unknown[] | undefined) => !r || r.every((x) => s(x) === '');
   const isProduct = (r: unknown[] | undefined) => !!r && cell(r, 3) !== '' && cell(r, 4) !== '';
-  const joinRow = (r: unknown[] | undefined) => (r || []).map((x) => s(x)).join(' ');
+  // แถวโครงสร้างของฟอร์ม (ชื่อเรื่อง / หัวข้อ "ส่งสินค้าทาง…" / แถวหัวคอลัมน์)
+  // ต้องเช็คก่อน isProduct เพราะแถวหัวคอลัมน์ก็มีคำว่า "สินค้า"/"จำนวน" อยู่ในช่อง D/E
+  const isTitle = (r: unknown[] | undefined) => /ใบสรุปรายการ/.test(cell(r, 0));
+  const isSection = (r: unknown[] | undefined) => /ส่งสินค้าทาง/.test(cell(r, 0));
+  const isHeader = (r: unknown[] | undefined) =>
+    /โรงแรม\s*\/\s*โรงพยาบาล/.test(cell(r, 0)) ||
+    /ที่อยู่ขนส่ง/.test(cell(r, 8)) ||
+    (/^สินค้า$/.test(cell(r, 3)) && /^จำนวน$/.test(cell(r, 4)));
+  const isStructural = (r: unknown[] | undefined) => isTitle(r) || isSection(r) || isHeader(r);
 
   let shipping = defaultShipping;
   let auto = 0;
@@ -226,15 +277,14 @@ export function parseCompanyGrid(grid: unknown[][], zones: Zone[], defaultShippi
   while (i < grid.length) {
     const r = grid[i];
     if (rowEmpty(r)) { i++; continue; }
-    const joined = joinRow(r);
 
-    // section header (กำหนดวิธีจัดส่งของบล็อกถัดไป)
-    if (/ส่งสินค้าทาง/.test(joined) && !isProduct(r)) {
-      shipping = /บริษัท/.test(joined) ? 'company' : 'shipping';
+    // หัวข้อ "ส่งสินค้าทาง…" = กำหนดวิธีจัดส่งของบล็อกถัดไป
+    if (isSection(r)) {
+      shipping = /บริษัท/.test(cell(r, 0)) ? 'company' : 'shipping';
       i++; continue;
     }
-    // แถวชื่อเรื่อง / หัวคอลัมน์
-    if (/ใบสรุปรายการ|โรงแรม\s*\/\s*โรงพยาบาล|ที่อยู่ขนส่ง/.test(joined) && !isProduct(r)) { i++; continue; }
+    // แถวชื่อเรื่อง / แถวหัวคอลัมน์ — ข้าม (ต้องเช็คก่อน isProduct)
+    if (isTitle(r) || isHeader(r)) { i++; continue; }
     if (!isProduct(r)) { i++; continue; }
 
     // รวมแถวของออเดอร์นี้ (จนกว่าจะเจอแถวว่าง / ออเดอร์ถัดไป / section ใหม่)
@@ -243,8 +293,8 @@ export function parseCompanyGrid(grid: unknown[][], zones: Zone[], defaultShippi
     while (j < grid.length) {
       const rj = grid[j];
       if (rowEmpty(rj)) break;
-      if (isProduct(rj) && cell(rj, 0) !== '') break;
-      if (/ส่งสินค้าทาง/.test(joinRow(rj)) && !isProduct(rj)) break;
+      if (isStructural(rj)) break;
+      if (isProduct(rj) && cell(rj, 0) !== '') break; // ออเดอร์ถัดไป
       block.push(rj);
       j++;
     }
