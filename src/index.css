@@ -351,6 +351,12 @@ table.data tbody tr:last-child td { border-bottom: none; }
 .seg-btn { padding: 7px 16px; font-size: 13px; font-weight: 600; background: #fff; color: #64748b; border: none; cursor: pointer; }
 .seg-btn.active { background: var(--indigo); color: #fff; }
 
+/* SLA / อายุออเดอร์ */
+.sla-pill { display: inline-block; margin-top: 4px; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
+.sla-chip { border-color: #fecdd3; color: #e11d48; font-weight: 600; }
+.sla-chip.active { background: #e11d48; color: #fff; border-color: #e11d48; }
+.sla-chip.active .chip-count { background: #ffffff33; color: #fff; }
+
 /* POD proof gallery */
 .pod-gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; }
 .pod-proof { border: 1px solid var(--border); border-radius: 12px; overflow: hidden; background: #f8fafc; }

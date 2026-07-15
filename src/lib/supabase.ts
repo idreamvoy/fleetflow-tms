@@ -345,7 +345,7 @@ export const db = {
         ship_date: input.ship_date ?? new Date().toISOString().slice(0, 10),
         items,
         box_count,
-        created_at: new Date().toISOString(),
+        created_at: input.order_date ? `${input.order_date}T00:00:00.000Z` : new Date().toISOString(),
       };
       demoOrders = [order, ...demoOrders];
       return order;
@@ -357,6 +357,7 @@ export const db = {
         delivery_location: input.delivery_location, shipping_method: input.shipping_method,
         zone_id: input.zone_id, status: input.status ?? 'unspecified', cod_amount: input.cod_amount ?? 0,
         ship_date: input.ship_date,
+        ...(input.order_date ? { created_at: `${input.order_date}T00:00:00.000Z` } : {}),
       })
       .select().single();
     if (error) throw error;
@@ -398,6 +399,7 @@ export const db = {
               status: input.status ?? o.status,
               cod_amount: input.cod_amount ?? 0,
               ship_date: input.ship_date ?? null,
+              created_at: input.order_date ? `${input.order_date}T00:00:00.000Z` : o.created_at,
               items,
               box_count,
             }
@@ -412,6 +414,7 @@ export const db = {
         delivery_location: input.delivery_location, shipping_method: input.shipping_method,
         zone_id: input.zone_id, status: input.status, cod_amount: input.cod_amount ?? 0,
         ship_date: input.ship_date ?? null,
+        ...(input.order_date ? { created_at: `${input.order_date}T00:00:00.000Z` } : {}),
       })
       .eq('id', id);
     if (error) throw error;

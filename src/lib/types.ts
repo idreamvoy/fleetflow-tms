@@ -108,6 +108,7 @@ export interface NewOrder {
   status?: OrderStatus;
   cod_amount?: number;
   ship_date?: string;
+  order_date?: string; // วันที่สร้างใบสั่งงาน (เก็บที่ created_at) — ใช้ดู SLA
   items: NewOrderItem[];
 }
 

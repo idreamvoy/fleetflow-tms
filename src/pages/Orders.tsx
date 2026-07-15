@@ -1,23 +1,27 @@
 import { useMemo, useState } from 'react';
 import type { Order, OrderStatus, ShippingMethod } from '../lib/types';
 import { STATUS_LABEL, STATUS_COLOR } from '../components/badges';
+import { slaOf, SLA_COLOR } from '../lib/sla';
 import { IconPlus, IconDownload, IconUpload } from '../components/icons';
+
+const fmtD = (iso?: string | null) => (iso ? new Date(iso.length <= 10 ? iso + 'T00:00:00' : iso).toLocaleDateString('th-TH', { day: '2-digit', month: 'short' }) : '—');
 
 const STATUS_ORDER: OrderStatus[] = [
   'unspecified', 'ready', 'waiting_ship', 'delivered', 'failed', 'cod_waiting', 'cod_transferred', 'oem',
 ];
 
 function exportCsv(orders: Order[]) {
-  const rows = [['เลขที่ใบสั่งงาน', 'ลูกค้า', 'กลุ่มสินค้า', 'รายการสินค้า', 'จำนวน', 'ชิ้น/กล่อง', 'กล่อง', 'หมายเหตุ', 'สถานะ', 'สถานที่ส่ง', 'กำหนดจัดส่ง']];
-  orders.forEach((o) =>
+  const rows = [['เลขที่ใบสั่งงาน', 'วันที่สร้าง', 'ลูกค้า', 'กลุ่มสินค้า', 'รายการสินค้า', 'จำนวน', 'ชิ้น/กล่อง', 'กล่อง', 'หมายเหตุ', 'สถานะ', 'สถานที่ส่ง', 'กำหนดจัดส่ง', 'SLA']];
+  orders.forEach((o) => {
+    const sla = slaOf(o);
     o.items.forEach((it) =>
       rows.push([
-        o.order_no, o.customer_name,
+        o.order_no, (o.created_at ?? '').slice(0, 10), o.customer_name,
         it.collection, it.product_name, String(it.qty), String(it.pieces_per_box), String(it.boxes), it.note ?? '',
-        STATUS_LABEL[o.status], o.delivery_location, o.ship_date ?? '',
+        STATUS_LABEL[o.status], o.delivery_location, o.ship_date ?? '', sla.label,
       ])
-    )
-  );
+    );
+  });
   const csv = '﻿' + rows.map((r) => r.map((c) => `"${c}"`).join(',')).join('\n');
   const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
   const a = document.createElement('a');
@@ -44,15 +48,18 @@ export default function Orders({
 }) {
   const [tab, setTab] = useState<ShippingMethod>('company');
   const [statusFilter, setStatusFilter] = useState<OrderStatus | 'all'>('all');
+  const [slaOnly, setSlaOnly] = useState(false);
 
   const byTab = useMemo(() => orders.filter((o) => o.shipping_method === tab), [orders, tab]);
   const companyCount = orders.filter((o) => o.shipping_method === 'company').length;
   const shippingCount = orders.filter((o) => o.shipping_method === 'shipping').length;
+  const atRiskCount = useMemo(() => byTab.filter((o) => { const l = slaOf(o).level; return l === 'overdue' || l === 'due'; }).length, [byTab]);
 
-  const filtered = useMemo(
-    () => (statusFilter === 'all' ? byTab : byTab.filter((o) => o.status === statusFilter)),
-    [byTab, statusFilter]
-  );
+  const filtered = useMemo(() => {
+    let r = statusFilter === 'all' ? byTab : byTab.filter((o) => o.status === statusFilter);
+    if (slaOnly) r = r.filter((o) => { const l = slaOf(o).level; return l === 'overdue' || l === 'due'; });
+    return r;
+  }, [byTab, statusFilter, slaOnly]);
 
   const chips: Array<{ key: OrderStatus | 'all'; label: string; color?: string }> = [
     { key: 'all', label: 'ทั้งหมด' },
@@ -97,6 +104,14 @@ export default function Orders({
             <span className="chip-count">{countFor(c.key)}</span>
           </button>
         ))}
+        <button
+          className={`chip sla-chip${slaOnly ? ' active' : ''}`}
+          style={{ marginLeft: 'auto' }}
+          onClick={() => setSlaOnly((v) => !v)}
+          title="แสดงเฉพาะออเดอร์ที่ใกล้ครบ/เกินกำหนดส่ง"
+        >
+          ⚠ ใกล้/เกินกำหนด<span className="chip-count">{atRiskCount}</span>
+        </button>
       </div>
 
       {/* Table */}
@@ -127,8 +142,9 @@ export default function Orders({
               {filtered.length === 0 ? (
                 <tr><td colSpan={9} className="loading">ไม่มีใบสั่งขายในหมวดนี้</td></tr>
               ) : (
-                filtered.map((o, idx) => (
-                  o.items.map((it, j) => (
+                filtered.map((o, idx) => {
+                  const sla = slaOf(o);
+                  return o.items.map((it, j) => (
                     <tr key={`${o.id}-${it.id}`} className={j === o.items.length - 1 ? 'order-end' : ''}>
                       {j === 0 && <td rowSpan={o.items.length} className="cell-top">{idx + 1}</td>}
                       {j === 0 && (
@@ -136,7 +152,12 @@ export default function Orders({
                           <div style={{ fontWeight: 600 }}>{o.customer_name}</div>
                         </td>
                       )}
-                      {j === 0 && <td rowSpan={o.items.length} className="cell-top"><code>{o.order_no}</code></td>}
+                      {j === 0 && (
+                        <td rowSpan={o.items.length} className="cell-top">
+                          <code>{o.order_no}</code>
+                          <div className="sub" style={{ color: '#94a3b8', marginTop: 3 }}>🗓 สร้าง {fmtD(o.created_at)}</div>
+                        </td>
+                      )}
                       <td>
                         <div className="col-tag">{it.collection}</div>
                         <div>{it.product_name}</div>
@@ -156,7 +177,10 @@ export default function Orders({
                       {j === 0 && (
                         <td rowSpan={o.items.length} className="cell-top wrap-hard">
                           <div>{o.delivery_location}</div>
-                          <div className="sub" style={{ color: '#94a3b8' }}>{o.ship_date}</div>
+                          <div className="sub" style={{ color: '#94a3b8' }}>{o.ship_date ? `กำหนดส่ง ${o.ship_date}` : 'ไม่ระบุวันส่ง'}</div>
+                          <span className="sla-pill" style={{ color: SLA_COLOR[sla.level], background: SLA_COLOR[sla.level] + '22' }}>
+                            {sla.level === 'overdue' ? '⚠ ' : ''}{sla.label}
+                          </span>
                         </td>
                       )}
                       {j === 0 && (
@@ -168,8 +192,8 @@ export default function Orders({
                         </td>
                       )}
                     </tr>
-                  ))
-                ))
+                  ));
+                })
               )}
             </tbody>
           </table>

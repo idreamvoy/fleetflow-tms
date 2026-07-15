@@ -31,6 +31,7 @@ export default function OrderModal({
     status: (order?.status ?? 'ready') as OrderStatus,
     cod_amount: order?.cod_amount ?? 0,
     ship_date: order?.ship_date ?? '',
+    order_date: order?.created_at ? order.created_at.slice(0, 10) : new Date().toLocaleDateString('sv-SE'),
   });
   const [items, setItems] = useState<ItemRow[]>(
     order && order.items.length
@@ -69,6 +70,7 @@ export default function OrderModal({
         status: f.status,
         cod_amount: Number(f.cod_amount),
         ship_date: f.ship_date || undefined, // ระบุหรือไม่ระบุก็ได้
+        order_date: f.order_date || undefined, // วันที่สร้างใบสั่งงาน (ดู SLA)
         items: payloadItems,
       };
       await onSave(order);
@@ -89,6 +91,10 @@ export default function OrderModal({
             <div className="field">
               <label>เลขที่ใบสั่งงาน</label>
               <input value={f.order_no} onChange={(e) => set('order_no', e.target.value)} required />
+            </div>
+            <div className="field">
+              <label>วันที่สร้างใบสั่งงาน <span className="sub" style={{ fontWeight: 400 }}>(ใช้ดู SLA)</span></label>
+              <input type="date" value={f.order_date} onChange={(e) => set('order_date', e.target.value)} />
             </div>
             <div className="field">
               <label>ชื่อลูกค้า *</label>
