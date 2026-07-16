@@ -616,6 +616,29 @@ table.data tbody tr:last-child td { border-bottom: none; }
 .stop-btn { flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 5px; padding: 8px; border-radius: 9px; font-size: 13px; font-weight: 600; }
 .stop-btn.nav { background: #f1f5f9; color: var(--text); }
 .stop-btn.confirm { background: var(--emerald); color: #fff; }
+.stop-btn.call { background: #e0f2fe; color: #0369a1; text-decoration: none; }
+
+/* Driver App — ความคืบหน้า / เลือกวัน / สรุป */
+.phone-prog { height: 5px; border-radius: 999px; background: rgba(255,255,255,0.28); margin-top: 10px; overflow: hidden; }
+.phone-prog-bar { height: 100%; border-radius: 999px; background: #fff; transition: width 0.3s; }
+.phone-days { display: flex; gap: 6px; padding: 10px 12px 0; }
+.phone-day { flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 5px; padding: 7px 4px; border-radius: 9px; background: #fff; border: 1px solid var(--border); font-size: 12px; font-weight: 600; color: var(--text-2); cursor: pointer; }
+.phone-day.active { background: var(--navy); border-color: var(--navy); color: #fff; }
+.phone-day-n { font-size: 10px; font-weight: 700; background: #e2e8f0; color: var(--text-2); border-radius: 999px; padding: 0 5px; }
+.phone-day.active .phone-day-n { background: rgba(255,255,255,0.22); color: #fff; }
+.phone-sum { display: flex; justify-content: space-between; gap: 8px; margin: 10px 12px 0; padding: 8px 12px; background: #fff; border-radius: 10px; font-size: 12px; color: var(--text-2); box-shadow: var(--shadow); }
+.phone-sum .cod-on { color: #b45309; }
+
+/* Driver App — จุดส่ง */
+.stop-cod { font-size: 11px; font-weight: 700; color: #b45309; background: #fef3c7; border-radius: 6px; padding: 1px 7px; }
+.stop-late { font-size: 11px; font-weight: 700; color: var(--rose); background: #ffe4e6; border-radius: 6px; padding: 1px 7px; }
+.stop-prod-btn { display: flex; align-items: center; gap: 5px; width: 100%; margin-top: 6px; padding: 5px 8px; border: 1px solid var(--border); border-radius: 8px; background: #f8fafc; color: var(--text-2); font-size: 12px; font-weight: 600; cursor: pointer; }
+.stop-caret { margin-left: auto; font-size: 9px; color: #94a3b8; }
+.stop-items { margin-top: 6px; display: flex; flex-direction: column; gap: 5px; padding: 8px; background: #f8fafc; border-radius: 8px; }
+.stop-item { display: flex; flex-direction: column; font-size: 12px; }
+.si-name { font-weight: 600; }
+.si-qty { color: #94a3b8; font-size: 11px; }
+.si-note { color: #f59e0b; font-size: 11px; }
 
 /* ---------- Misc ---------- */
 .loading { padding: 60px 20px; text-align: center; color: var(--text-3); }
