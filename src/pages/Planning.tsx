@@ -18,7 +18,7 @@ const shortZone = (name?: string | null) => {
 const tripLabel = (t: Trip) => t.driver_name || `เที่ยว #${t.id}`;
 import type { LatLng } from '../lib/geo';
 import { geocode, optimizeOrder, routePlan, WAREHOUSE, haversine } from '../lib/geo';
-import { ORS_ENABLED, ensureGeocoded, ensureRoute, onGeoUpdate } from '../lib/ors';
+import { ORS_ENABLED, ensureGeocoded, ensureRoute, onGeoUpdate, cachedCoords } from '../lib/ors';
 
 const WAREHOUSE_ORIGIN = `${WAREHOUSE.lat},${WAREHOUSE.lng}`; // คลังเนเจอร์ทัช
 
@@ -72,7 +72,9 @@ export default function Planning({
   // ORS ทำงานเบื้องหลัง: หาพิกัดจากที่อยู่จริง แล้วสั่ง re-render เมื่อได้ผล
   const [, forceRender] = useReducer((x: number) => x + 1, 0);
   useEffect(() => onGeoUpdate(forceRender), []);
-  useEffect(() => { ensureGeocoded(orders.map((o) => o.delivery_location)); }, [orders]);
+  useEffect(() => {
+    ensureGeocoded(orders.map((o) => ({ address: o.delivery_location, customer: o.customer_name })));
+  }, [orders]);
 
   const [selectedTrip, setSelectedTrip] = useState<number>(trips[0]?.id ?? 0);
   const [busy, setBusy] = useState<number | null>(null);
@@ -436,7 +438,12 @@ export default function Planning({
                                   {plan && (
                                     plan.legs[i].km == null
                                       ? <div className="stop-eta warn">⚠ หาพิกัดไม่เจอ — ตรวจที่อยู่</div>
-                                      : <div className="stop-eta">ระยะ {plan.legs[i].km} กม.{plan.source === 'estimate' ? ' (ประมาณ)' : ''}</div>
+                                      : <div className="stop-eta">
+                                          ระยะ {plan.legs[i].km} กม.{plan.source === 'estimate' ? ' (ประมาณ)' : ''}
+                                          {cachedCoords(o.delivery_location)?.precision === 'province' && (
+                                            <span className="warn" title="ระบุได้แค่ระดับจังหวัด — ระยะอาจคลาดเคลื่อนหลายสิบ กม."> · ⚠ ตำแหน่งหยาบ (ระดับจังหวัด)</span>
+                                          )}
+                                        </div>
                                   )}
                                 </div>
                                 <button className="stop-remove" title="นำออกจากเที่ยว" disabled={busy === o.id} onClick={(e) => { e.stopPropagation(); unassign(o.id, t.id); }}>×</button>
