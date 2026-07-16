@@ -4,6 +4,8 @@
 // (ยังไม่ใช้ Google Directions API — ประเมินจากพิกัดเส้นตรง)
 // ============================================================
 
+import { cachedCoords, cachedRoute, ORS_ENABLED } from './ors';
+
 export interface LatLng {
   lat: number;
   lng: number;
@@ -50,13 +52,18 @@ const PLACES: Array<{ kw: string; lat: number; lng: number }> = [
   { kw: 'สงขลา', lat: 7.19, lng: 100.595 },
 ];
 
-// แปลงที่อยู่ (ข้อความ) → พิกัดโดยประมาณ
-export function geocode(location: string | null | undefined, zoneId?: number | null): LatLng {
-  if (location) {
-    for (const p of PLACES) if (location.includes(p.kw)) return { lat: p.lat, lng: p.lng };
-  }
-  // fallback: ศูนย์กลางโซน
-  return zoneId === 2 ? { lat: 15.2, lng: 100.6 } : { lat: 13.75, lng: 100.53 };
+// แปลงที่อยู่ (ข้อความ) → พิกัด
+//  1) พิกัดจริงจาก OpenRouteService (ถ้ามีคีย์ + โหลดมาแล้ว)
+//  2) เดาจากคำสำคัญในตาราง PLACES (ค่าประมาณ)
+//  3) null = ไม่รู้จริง ๆ → ต้องเตือน ห้ามเดา
+// หมายเหตุ: เดิมข้อ 3 คืน "ศูนย์กลางภาค" ทำให้ที่อยู่สะกดผิด 1 ตัว
+// กลายเป็นระยะ 213 กม. แบบเงียบ ๆ จึงตัดออก
+export function geocode(location: string | null | undefined, _zoneId?: number | null): LatLng | null {
+  if (!location) return null;
+  const ors = cachedCoords(location);
+  if (ors) return ors;
+  for (const p of PLACES) if (location.includes(p.kw)) return { lat: p.lat, lng: p.lng };
+  return null;
 }
 
 // ระยะทางเส้นตรง (กม.) — Haversine
@@ -135,23 +142,51 @@ export function optimizeOrder(points: LatLng[]): number[] {
 
 export interface RouteLeg {
   idx: number; // index ใน points ตามลำดับที่ให้มา
-  km: number; // ระยะจากจุดก่อนหน้า (ถนนประเมิน)
+  km: number | null; // ระยะจากจุดก่อนหน้า · null = ไม่รู้พิกัดจุดนี้
   etaMin: number; // เวลาถึง (นาทีจากเที่ยงคืน)
 }
 
-// คำนวณระยะ/เวลา/ETA ตามลำดับจุดที่กำหนด (points เรียงตามลำดับส่งแล้ว)
-export function routePlan(points: LatLng[]): { legs: RouteLeg[]; totalKm: number; totalMin: number } {
-  let cur = WAREHOUSE;
+export interface RoutePlan {
+  legs: RouteLeg[];
+  totalKm: number;
+  totalMin: number;
+  source: 'ors' | 'estimate'; // ors = ระยะถนนจริง · estimate = เส้นตรง×1.3
+  unknown: number; // จำนวนจุดที่หาพิกัดไม่ได้
+}
+
+// คำนวณระยะ/เวลา ตามลำดับจุดที่กำหนด (points เรียงตามลำดับส่งแล้ว)
+// รับ null ได้ = จุดที่หาพิกัดไม่ได้ → ไม่คิดระยะให้ (แทนที่จะเดา)
+export function routePlan(points: Array<LatLng | null>): RoutePlan {
+  const unknown = points.filter((p) => !p).length;
+
+  // ทางที่แม่นจริง: ทุกจุดมีพิกัด + ORS ส่งเส้นทางถนนมาแล้ว
+  if (!unknown && points.length && ORS_ENABLED) {
+    const full = [WAREHOUSE, ...(points as LatLng[])];
+    const r = cachedRoute(full);
+    if (r) {
+      let clock = START_MIN;
+      const legs: RouteLeg[] = points.map((_, idx) => {
+        const km = r.legs[idx] ?? 0;
+        clock += (km / AVG_SPEED_KMH) * 60 + SERVICE_MIN;
+        return { idx, km, etaMin: Math.round(clock) };
+      });
+      return { legs, totalKm: r.totalKm, totalMin: r.totalMin, source: 'ors', unknown: 0 };
+    }
+  }
+
+  // ค่าประมาณ: เส้นตรง × 1.3 · ข้ามจุดที่ไม่รู้พิกัด
+  let cur: LatLng = WAREHOUSE;
   let clock = START_MIN;
   let totalKm = 0;
   const legs: RouteLeg[] = points.map((p, idx) => {
+    if (!p) return { idx, km: null, etaMin: Math.round(clock) };
     const km = haversine(cur, p) * ROAD_FACTOR;
     clock += (km / AVG_SPEED_KMH) * 60 + SERVICE_MIN;
     cur = p;
     totalKm += km;
     return { idx, km: Math.round(km * 10) / 10, etaMin: Math.round(clock) };
   });
-  return { legs, totalKm: Math.round(totalKm * 10) / 10, totalMin: Math.round(clock - START_MIN) };
+  return { legs, totalKm: Math.round(totalKm * 10) / 10, totalMin: Math.round(clock - START_MIN), source: 'estimate', unknown };
 }
 
 export function fmtClock(min: number): string {

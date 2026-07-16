@@ -357,6 +357,11 @@ table.data tbody tr:last-child td { border-bottom: none; }
 .sla-chip.active { background: #e11d48; color: #fff; border-color: #e11d48; }
 .sla-chip.active .chip-count { background: #ffffff33; color: #fff; }
 
+/* คำเตือน/หมายเหตุ เรื่องระยะทาง */
+.stop-eta.warn { color: #b45309; }
+.route-warn { margin-top: 8px; padding: 7px 10px; background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; color: #92400e; font-size: 12px; }
+.route-note { margin-top: 8px; padding: 7px 10px; background: #f8fafc; border: 1px solid var(--border); border-radius: 8px; color: #64748b; font-size: 12px; }
+
 /* POD proof gallery */
 .pod-gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; }
 .pod-proof { border: 1px solid var(--border); border-radius: 12px; overflow: hidden; background: #f8fafc; }

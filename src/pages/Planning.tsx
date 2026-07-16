@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useReducer, useState } from 'react';
 import type { Order, Trip, Driver, Zone, OrderStatus, TripStatus } from '../lib/types';
 import { TRIP_STATUS_LABEL } from '../lib/types';
 import { IconRoute, IconPin, IconTruck, IconBox, IconPlus } from '../components/icons';
@@ -16,7 +16,9 @@ const shortZone = (name?: string | null) => {
 };
 // ชื่อเที่ยว = ชื่อคนขับ (แทนการนับ TR-xx) — ยังไม่ระบุ ใช้ 'เที่ยว #id'
 const tripLabel = (t: Trip) => t.driver_name || `เที่ยว #${t.id}`;
-import { geocode, optimizeOrder, routePlan, fmtClock, fmtDuration, WAREHOUSE, haversine } from '../lib/geo';
+import type { LatLng } from '../lib/geo';
+import { geocode, optimizeOrder, routePlan, WAREHOUSE, haversine } from '../lib/geo';
+import { ORS_ENABLED, ensureGeocoded, ensureRoute, onGeoUpdate } from '../lib/ors';
 
 const WAREHOUSE_ORIGIN = `${WAREHOUSE.lat},${WAREHOUSE.lng}`; // คลังเนเจอร์ทัช
 
@@ -67,6 +69,11 @@ export default function Planning({
   const assignedIds = useMemo(() => new Set(trips.flatMap((t) => t.order_ids)), [trips]);
   const unassigned = orders.filter((o) => !assignedIds.has(o.id) && WAITING_STATUSES.includes(o.status));
 
+  // ORS ทำงานเบื้องหลัง: หาพิกัดจากที่อยู่จริง แล้วสั่ง re-render เมื่อได้ผล
+  const [, forceRender] = useReducer((x: number) => x + 1, 0);
+  useEffect(() => onGeoUpdate(forceRender), []);
+  useEffect(() => { ensureGeocoded(orders.map((o) => o.delivery_location)); }, [orders]);
+
   const [selectedTrip, setSelectedTrip] = useState<number>(trips[0]?.id ?? 0);
   const [busy, setBusy] = useState<number | null>(null);
   const [busyAll, setBusyAll] = useState(false);
@@ -84,6 +91,16 @@ export default function Planning({
   const allStopsOf = (t: Trip) => t.order_ids.map((id) => orders.find((o) => o.id === id)).filter(Boolean) as Order[];
   const stopsOf = (t: Trip) => allStopsOf(t).filter(dayMatch); // เฉพาะวันที่เลือก
   const usedBoxes = (t: Trip) => stopsOf(t).reduce((s, o) => s + o.box_count, 0);
+
+  // ขอเส้นทางถนนจริงจาก ORS สำหรับเที่ยวที่เลือก (ทุกจุดต้องรู้พิกัดก่อน)
+  useEffect(() => {
+    if (!ORS_ENABLED) return;
+    const t = trips.find((x) => x.id === selectedTrip);
+    if (!t) return;
+    const pts = stopsOf(t).map((o) => geocode(o.delivery_location, o.zone_id));
+    if (pts.length && pts.every(Boolean)) ensureRoute([WAREHOUSE, ...(pts as LatLng[])]);
+  });
+
   const isUrgent = (o: Order) => o.items.some((it) => (it.note || '').includes('ด่วน'));
   const productSummary = (o: Order) => {
     const first = o.items[0]?.product_name ?? '';
@@ -95,11 +112,13 @@ export default function Planning({
     const fit = trips.filter((t) => t.zone_id === o.zone_id && usedBoxes(t) + o.box_count <= t.capacity_boxes);
     if (!fit.length) return null;
     const oPt = geocode(o.delivery_location, o.zone_id);
+    if (!oPt) return fit[0]; // ไม่รู้พิกัด → แนะนำตามโซน/ความจุอย่างเดียว
     let best = fit[0];
     let bestD = Infinity;
     fit.forEach((t) => {
       const st = stopsOf(t);
-      const last = st.length ? geocode(st[st.length - 1].delivery_location, st[st.length - 1].zone_id) : WAREHOUSE;
+      const lastStop = st[st.length - 1];
+      const last = (st.length ? geocode(lastStop.delivery_location, lastStop.zone_id) : WAREHOUSE) ?? WAREHOUSE;
       const d = haversine(last, oPt);
       if (d < bestD) { bestD = d; best = t; }
     });
@@ -114,15 +133,19 @@ export default function Planning({
   }, [unassigned]);
   const fmtDay = (d: string) => new Date(d).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' });
 
-  // ---- distance from warehouse ----
-  const getDistance = (o: Order): number => {
+  // ---- distance from warehouse (null = หาพิกัดไม่ได้) ----
+  const getDistance = (o: Order): number | null => {
     const pt = geocode(o.delivery_location, o.zone_id);
+    if (!pt) return null;
     return Math.round(haversine(WAREHOUSE, pt) * 10) / 10;
   };
 
   // ---- ออเดอร์รอจัด (กรองวัน + เรียงระยะ) ----
   const filteredOrders = unassigned.filter(dayMatch);
-  const shown = sortByDistance ? [...filteredOrders].sort((a, b) => getDistance(a) - getDistance(b)) : filteredOrders;
+  // จุดที่หาพิกัดไม่ได้ให้ไปท้ายรายการ (ไม่รู้ระยะ = เรียงไม่ได้)
+  const shown = sortByDistance
+    ? [...filteredOrders].sort((a, b) => (getDistance(a) ?? Infinity) - (getDistance(b) ?? Infinity))
+    : filteredOrders;
 
   // ---- ความคืบหน้าการวางแผน (ตามวันที่เลือก) ----
   const scopeAssigned = trips.reduce((s, t) => s + stopsOf(t).length, 0);
@@ -167,10 +190,17 @@ export default function Planning({
     const st = stopsOf(t);
     if (st.length < 2) return;
     const pts = st.map((o) => geocode(o.delivery_location, o.zone_id));
-    const nn = optimizeOrder(pts);
-    const nnKm = routePlan(nn.map((i) => pts[i])).totalKm;
-    const curKm = routePlan(pts).totalKm;
-    const bestIdx = nnKm < curKm ? nn : pts.map((_, i) => i);
+    // จัดลำดับไม่ได้ถ้ายังมีจุดที่หาพิกัดไม่เจอ — บอกไปตรง ๆ ดีกว่าจัดมั่ว
+    if (pts.some((p) => !p)) {
+      const bad = st.filter((_, i) => !pts[i]).map((o) => o.customer_name).join(', ');
+      alert(`จัดลำดับไม่ได้ — หาพิกัดไม่เจอ: ${bad}\nกรุณาตรวจ/แก้ที่อยู่ของจุดนี้ก่อน`);
+      return;
+    }
+    const known = pts as LatLng[];
+    const nn = optimizeOrder(known);
+    const nnKm = routePlan(nn.map((i) => known[i])).totalKm;
+    const curKm = routePlan(known).totalKm;
+    const bestIdx = nnKm < curKm ? nn : known.map((_, i) => i);
     await onReorder(t.id, mergeBack(t, bestIdx.map((i) => st[i].id)));
   };
   const openMaps = (t: Trip) => {
@@ -283,7 +313,9 @@ export default function Planning({
                       <div style={{ fontWeight: 700, fontSize: 15 }}>{o.customer_name}</div>
                       <div className="sub" style={{ color: '#94a3b8' }}>{productSummary(o)} · {o.box_count} กล่อง</div>
                       <div className="wait-meta">
-                        <span className="wait-chip">📍 {getDistance(o)} กม.</span>
+                        {getDistance(o) == null
+                          ? <span className="wait-chip warn" title="หาพิกัดจากที่อยู่ไม่เจอ — ตรวจการสะกดที่อยู่">📍 ไม่ทราบระยะ</span>
+                          : <span className="wait-chip">📍 {getDistance(o)} กม.</span>}
                         {rec ? (
                           <span className="wait-chip rec">💡 แนะนำ {tripLabel(rec)}</span>
                         ) : (
@@ -401,7 +433,11 @@ export default function Planning({
                                     {isUrgent(o) && <span className="warn-tag urgent">🔥</span>}
                                   </div>
                                   <div className="sub" style={{ color: '#94a3b8' }}>{o.delivery_location} · {o.box_count} กล่อง</div>
-                                  {plan && <div className="stop-eta">ระยะ {plan.legs[i].km} กม.</div>}
+                                  {plan && (
+                                    plan.legs[i].km == null
+                                      ? <div className="stop-eta warn">⚠ หาพิกัดไม่เจอ — ตรวจที่อยู่</div>
+                                      : <div className="stop-eta">ระยะ {plan.legs[i].km} กม.{plan.source === 'estimate' ? ' (ประมาณ)' : ''}</div>
+                                  )}
                                 </div>
                                 <button className="stop-remove" title="นำออกจากเที่ยว" disabled={busy === o.id} onClick={(e) => { e.stopPropagation(); unassign(o.id, t.id); }}>×</button>
                               </div>
@@ -412,9 +448,24 @@ export default function Planning({
 
                       {/* manifest */}
                       <div className="manifest">
-                        <span>รวม <b>{used}</b> กล่อง · <b>{stops.length}</b> จุด{plan && stops.length > 0 ? <> · ระยะ ~<b>{plan.totalKm}</b> กม.</> : null}</span>
+                        <span>
+                          รวม <b>{used}</b> กล่อง · <b>{stops.length}</b> จุด
+                          {plan && stops.length > 0 && (
+                            <> · ระยะ {plan.source === 'ors' ? <><b>{plan.totalKm}</b> กม.</> : <>~<b>{plan.totalKm}</b> กม. (ประมาณ)</>}</>
+                          )}
+                        </span>
                         <span>COD รวม <b>฿{codTotal.toLocaleString()}</b></span>
                       </div>
+                      {plan && plan.unknown > 0 && (
+                        <div className="route-warn">
+                          ⚠ มี {plan.unknown} จุดที่หาพิกัดจากที่อยู่ไม่เจอ — ระยะรวมยังไม่นับจุดเหล่านี้ กรุณาตรวจ/แก้ที่อยู่
+                        </div>
+                      )}
+                      {plan && plan.source === 'estimate' && plan.unknown === 0 && !ORS_ENABLED && (
+                        <div className="route-note">
+                          ℹ️ ระยะเป็น<b>ค่าประมาณ</b> (เส้นตรง×1.3) — ใส่ ORS API key เพื่อใช้ระยะถนนจริง
+                        </div>
+                      )}
                     </>
                   )}
                 </div>
