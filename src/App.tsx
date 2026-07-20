@@ -128,6 +128,12 @@ export default function App() {
     flash(`นำออกจาก TR-${String(tripId).padStart(2, '0')} แล้ว · กลับไปรอจัดรถ`);
   }
 
+  async function handleSetShipDate(orderId: number, ship_date: string | null) {
+    await db.updateOrderShipDate(orderId, ship_date);
+    setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, ship_date } : o)));
+    flash(ship_date ? `กำหนดส่ง ${ship_date} แล้ว ✓` : 'ล้างวันกำหนดส่งแล้ว');
+  }
+
   async function handleReorder(tripId: number, orderIds: number[]) {
     await db.reorderTripStops(tripId, orderIds);
     await loadAll();
@@ -253,7 +259,7 @@ export default function App() {
           ) : page === 'orders' ? (
             <Orders orders={filteredOrders} onAdd={openAdd} onImport={() => setShowImport(true)} onEdit={openEdit} onStatusChange={handleStatusChange} onDelete={handleDelete} />
           ) : page === 'planning' ? (
-            <Planning orders={orders} trips={trips} drivers={drivers} zones={zones} onAssign={handleAssign} onUnassign={handleUnassign} onReorder={handleReorder} onSetTripDriver={handleSetTripDriver} onCreateTrip={handleCreateTrip} onSetTripStatus={handleSetTripStatus} onDeleteTrip={handleDeleteTrip} />
+            <Planning orders={orders} trips={trips} drivers={drivers} zones={zones} onAssign={handleAssign} onUnassign={handleUnassign} onReorder={handleReorder} onSetTripDriver={handleSetTripDriver} onCreateTrip={handleCreateTrip} onSetTripStatus={handleSetTripStatus} onDeleteTrip={handleDeleteTrip} onSetShipDate={handleSetShipDate} />
           ) : page === 'tracking' ? (
             <Tracking trips={trips} orders={orders} />
           ) : page === 'driver' ? (

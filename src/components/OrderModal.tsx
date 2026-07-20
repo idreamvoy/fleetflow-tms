@@ -69,7 +69,8 @@ export default function OrderModal({
         zone_id: f.zone_id,
         status: f.status,
         cod_amount: Number(f.cod_amount),
-        ship_date: f.ship_date || undefined, // ระบุหรือไม่ระบุก็ได้
+        // วันกำหนดส่งตั้งที่หน้า "วางแผนจัดส่ง" — ส่งค่าเดิมกลับไปเพื่อไม่ให้ถูกล้างตอนแก้ออเดอร์
+        ship_date: f.ship_date || undefined,
         order_date: f.order_date || undefined, // วันที่สร้างใบสั่งงาน (ดู SLA)
         items: payloadItems,
       };
@@ -128,11 +129,9 @@ export default function OrderModal({
               <input type="number" min={0} value={f.cod_amount} onChange={(e) => set('cod_amount', e.target.value)} />
             </div>
             <div className="field">
-              <label>กำหนดจัดส่ง <span className="sub" style={{ fontWeight: 400 }}>(ไม่ระบุก็ได้)</span></label>
-              <div style={{ display: 'flex', gap: 6 }}>
-                <input type="date" value={f.ship_date} onChange={(e) => set('ship_date', e.target.value)} style={{ flex: 1 }} />
-                <button type="button" className="btn btn-ghost xs" onClick={() => set('ship_date', new Date().toLocaleDateString('sv-SE'))} title="ตั้งเป็นวันนี้">วันนี้</button>
-                {f.ship_date && <button type="button" className="btn btn-ghost xs" onClick={() => set('ship_date', '')} title="ล้างวันที่">×</button>}
+              <label>กำหนดจัดส่ง</label>
+              <div className="readonly-note">
+                {order?.ship_date ? <><b>{order.ship_date}</b> · แก้ได้ที่หน้า “วางแผนจัดส่ง”</> : 'กำหนดที่หน้า “วางแผนจัดส่ง”'}
               </div>
             </div>
           </div>

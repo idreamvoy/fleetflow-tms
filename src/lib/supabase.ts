@@ -429,6 +429,16 @@ export const db = {
     }
   },
 
+  // กำหนดวันจัดส่ง — ทำจากหน้า "วางแผนจัดส่ง" (ไม่ใช่ตอนคีย์ออเดอร์)
+  async updateOrderShipDate(id: number, ship_date: string | null): Promise<void> {
+    if (!supabase) {
+      demoOrders = demoOrders.map((o) => (o.id === id ? { ...o, ship_date } : o));
+      return;
+    }
+    const { error } = await supabase.from('orders').update({ ship_date }).eq('id', id);
+    if (error) throw error;
+  },
+
   async updateOrderStatus(id: number, status: OrderStatus): Promise<void> {
     if (!supabase) {
       demoOrders = demoOrders.map((o) => (o.id === id ? { ...o, status } : o));

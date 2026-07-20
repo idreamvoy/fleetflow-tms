@@ -53,6 +53,7 @@ export default function Planning({
   onCreateTrip,
   onSetTripStatus,
   onDeleteTrip,
+  onSetShipDate,
 }: {
   orders: Order[];
   trips: Trip[];
@@ -65,6 +66,7 @@ export default function Planning({
   onCreateTrip: (input: { driver_id: number | null; zone_id: number | null; vehicle_type: string; capacity_boxes: number }) => Promise<void>;
   onSetTripStatus: (tripId: number, status: TripStatus) => Promise<void>;
   onDeleteTrip: (tripId: number) => Promise<void>;
+  onSetShipDate: (orderId: number, ship_date: string | null) => Promise<void>;
 }) {
   const assignedIds = useMemo(() => new Set(trips.flatMap((t) => t.order_ids)), [trips]);
   const unassigned = orders.filter((o) => !assignedIds.has(o.id) && WAITING_STATUSES.includes(o.status));
@@ -89,7 +91,8 @@ export default function Planning({
   const selTrip = trips.find((t) => t.id === selectedTrip);
 
   // ---- ตัวกรองวัน: ใช้กับทั้งออเดอร์รอจัด + จุดส่งในเที่ยว ----
-  const dayMatch = (o: Order) => day === 'all' || o.ship_date === day;
+  // 'none' = ยังไม่ระบุวัน (ต้องหาให้เจอง่าย ๆ เพราะตอนนี้กำหนดวันกันที่หน้านี้)
+  const dayMatch = (o: Order) => day === 'all' || (day === 'none' ? !o.ship_date : o.ship_date === day);
   const allStopsOf = (t: Trip) => t.order_ids.map((id) => orders.find((o) => o.id === id)).filter(Boolean) as Order[];
   const stopsOf = (t: Trip) => allStopsOf(t).filter(dayMatch); // เฉพาะวันที่เลือก
   const usedBoxes = (t: Trip) => stopsOf(t).reduce((s, o) => s + o.box_count, 0);
@@ -272,6 +275,11 @@ export default function Planning({
             {fmtDay(d)} <span className="chip-count">{unassigned.filter((o) => o.ship_date === d).length}</span>
           </button>
         ))}
+        {unassigned.some((o) => !o.ship_date) && (
+          <button className={`chip chip-nodate${day === 'none' ? ' active' : ''}`} onClick={() => setDay('none')} title="ออเดอร์ที่ยังไม่ได้กำหนดวันส่ง">
+            ⚠ ยังไม่ระบุวัน <span className="chip-count">{unassigned.filter((o) => !o.ship_date).length}</span>
+          </button>
+        )}
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
           <button
             className={`btn btn-ghost xs${sortByDistance ? ' active' : ''}`}
@@ -314,6 +322,21 @@ export default function Planning({
                       </div>
                       <div style={{ fontWeight: 700, fontSize: 15 }}>{o.customer_name}</div>
                       <div className="sub" style={{ color: '#94a3b8' }}>{productSummary(o)} · {o.box_count} กล่อง</div>
+                      <div className="ship-date-row" onClick={(e) => e.stopPropagation()}>
+                        <span className="sdr-label">🗓 กำหนดส่ง</span>
+                        <input
+                          type="date"
+                          className={`sdr-input${o.ship_date ? '' : ' empty'}`}
+                          value={o.ship_date ?? ''}
+                          onChange={(e) => onSetShipDate(o.id, e.target.value || null)}
+                        />
+                        {!o.ship_date && (
+                          <button className="sdr-quick" onClick={() => onSetShipDate(o.id, new Date().toLocaleDateString('sv-SE'))}>วันนี้</button>
+                        )}
+                        {o.ship_date && (
+                          <button className="sdr-clear" title="ล้างวันกำหนดส่ง" onClick={() => onSetShipDate(o.id, null)}>×</button>
+                        )}
+                      </div>
                       <div className="wait-meta">
                         {getDistance(o) == null
                           ? <span className="wait-chip warn" title="หาพิกัดจากที่อยู่ไม่เจอ — ตรวจการสะกดที่อยู่">📍 ไม่ทราบระยะ</span>
@@ -430,7 +453,14 @@ export default function Planning({
                                 <div style={{ flex: 1, minWidth: 0, cursor: 'pointer' }} onClick={() => setDetail(o)}>
                                   <div style={{ fontWeight: 600, display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
                                     {o.customer_name}
-                                    {day === 'all' && <span className="stop-date-chip">🗓️ {o.ship_date ? fmtDay(o.ship_date) : 'ไม่ระบุ'}</span>}
+                                    <input
+                                      type="date"
+                                      className={`stop-date-input${o.ship_date ? '' : ' empty'}`}
+                                      value={o.ship_date ?? ''}
+                                      title="กำหนดวันจัดส่ง"
+                                      onClick={(e) => e.stopPropagation()}
+                                      onChange={(e) => { e.stopPropagation(); onSetShipDate(o.id, e.target.value || null); }}
+                                    />
                                     {mismatch && <span className="warn-tag zone">⚠️ ผิดโซน</span>}
                                     {isUrgent(o) && <span className="warn-tag urgent">🔥</span>}
                                   </div>
