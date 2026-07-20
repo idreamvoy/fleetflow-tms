@@ -3,12 +3,13 @@ import type { Order, Zone } from '../lib/types';
 import { computeStats, computeStatusBreakdown, computeZoneSummary } from '../lib/supabase';
 import Donut from '../components/Donut';
 import DaySummaryModal from '../components/DaySummaryModal';
-import { IconBox, IconTruck, IconMoney, IconCheck, IconAlert, IconGrid, IconCalendar } from '../components/icons';
+import OrdersMapView from '../components/OrdersMapView';
+import { IconBox, IconTruck, IconMoney, IconCheck, IconAlert, IconGrid, IconCalendar, IconPin } from '../components/icons';
 
 const WEEKDAYS = ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส'];
 
 export default function Dashboard({ orders, zones }: { orders: Order[]; zones: Zone[] }) {
-  const [view, setView] = useState<'summary' | 'calendar'>('summary');
+  const [view, setView] = useState<'summary' | 'calendar' | 'map'>('summary');
   const [selDay, setSelDay] = useState<string | null>(null);
   const stats = computeStats(orders);
   const breakdown = computeStatusBreakdown(orders);
@@ -50,9 +51,14 @@ export default function Dashboard({ orders, zones }: { orders: Order[]; zones: Z
         <button className={`tab${view === 'calendar' ? ' active' : ''}`} onClick={() => setView('calendar')}>
           <IconCalendar width={16} height={16} /> ปฏิทินจัดส่ง
         </button>
+        <button className={`tab${view === 'map' ? ' active' : ''}`} onClick={() => setView('map')}>
+          <IconPin width={16} height={16} /> แผนที่ออเดอร์
+        </button>
       </div>
 
-      {view === 'summary' ? (
+      {view === 'map' ? (
+        <OrdersMapView orders={orders} zones={zones} />
+      ) : view === 'summary' ? (
         <>
           {/* KPI cards */}
           <div className="kpi-grid">
