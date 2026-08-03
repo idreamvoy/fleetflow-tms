@@ -488,16 +488,17 @@ export const db = {
     })) as Trip[];
   },
 
-  async createTrip(input: { driver_id: number | null; zone_id: number | null; order_ids: number[]; vehicle_type?: string; capacity_boxes?: number }): Promise<Trip> {
+  async createTrip(input: { driver_id: number | null; zone_id: number | null; order_ids: number[]; vehicle_type?: string; capacity_boxes?: number; trip_date?: string }): Promise<Trip> {
     const distance = estimateDistance(input.order_ids.length, input.zone_id);
     const vehicle_type = input.vehicle_type?.trim() || 'รถ 4 ล้อ';
     const capacity_boxes = input.capacity_boxes && input.capacity_boxes > 0 ? input.capacity_boxes : 120;
+    const trip_date = input.trip_date || new Date().toISOString().slice(0, 10);
     if (!supabase) {
       const driver = demoDrivers.find((d) => d.id === input.driver_id) ?? null;
       const zone = demoZones.find((z) => z.id === input.zone_id) ?? null;
       const trip: Trip = {
         id: Math.max(0, ...demoTrips.map((t) => t.id)) + 1,
-        trip_date: new Date().toISOString().slice(0, 10),
+        trip_date,
         driver_id: input.driver_id, driver_name: driver?.name ?? null,
         zone_id: input.zone_id, zone_name: zone?.name ?? null,
         status: input.driver_id ? 'assigned' : 'planning',
@@ -512,7 +513,7 @@ export const db = {
     }
     const { data: trip, error } = await supabase
       .from('trips')
-      .insert({ trip_date: new Date().toISOString().slice(0, 10), driver_id: input.driver_id, zone_id: input.zone_id, status: input.driver_id ? 'assigned' : 'planning', vehicle_type, capacity_boxes, distance_km: distance })
+      .insert({ trip_date, driver_id: input.driver_id, zone_id: input.zone_id, status: input.driver_id ? 'assigned' : 'planning', vehicle_type, capacity_boxes, distance_km: distance })
       .select().single();
     if (error) throw error;
     if (input.order_ids.length) {

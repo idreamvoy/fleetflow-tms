@@ -117,9 +117,12 @@ export default function App() {
   }
 
   async function handleAssign(orderId: number, tripId: number) {
+    const trip = trips.find((t) => t.id === tripId);
     await db.assignOrderToTrip(orderId, tripId);
+    // จัดเข้ารถของวันไหน = ตั้งวันส่งของออเดอร์ให้ตรงกับวันของเที่ยวอัตโนมัติ
+    if (trip?.trip_date) await db.updateOrderShipDate(orderId, trip.trip_date);
     await loadAll();
-    flash(`จัดเข้าเที่ยว TR-${String(tripId).padStart(2, '0')} แล้ว ✓`);
+    flash(`จัดเข้า ${trip?.driver_name ?? 'เที่ยว'}${trip?.trip_date ? ` · ส่ง ${trip.trip_date}` : ''} ✓`);
   }
 
   async function handleUnassign(orderId: number, tripId: number) {
@@ -198,10 +201,10 @@ export default function App() {
     }
   }
 
-  async function handleCreateTrip(input: { driver_id: number | null; zone_id: number | null; vehicle_type: string; capacity_boxes: number }) {
+  async function handleCreateTrip(input: { driver_id: number | null; zone_id: number | null; vehicle_type: string; capacity_boxes: number; trip_date?: string }) {
     await db.createTrip({ ...input, order_ids: [] });
     await loadAll();
-    flash('สร้างเที่ยวรถใหม่แล้ว ✓');
+    flash(`สร้างเที่ยว${input.trip_date ? ` วัน ${input.trip_date}` : ''} แล้ว ✓`);
   }
   async function handleSetTripStatus(tripId: number, status: TripStatus) {
     await db.updateTripStatus(tripId, status);

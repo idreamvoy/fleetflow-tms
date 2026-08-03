@@ -63,7 +63,7 @@ export default function Planning({
   onUnassign: (orderId: number, tripId: number) => Promise<void>;
   onReorder: (tripId: number, orderIds: number[]) => Promise<void>;
   onSetTripDriver: (tripId: number, driverId: number | null) => Promise<void>;
-  onCreateTrip: (input: { driver_id: number | null; zone_id: number | null; vehicle_type: string; capacity_boxes: number }) => Promise<void>;
+  onCreateTrip: (input: { driver_id: number | null; zone_id: number | null; vehicle_type: string; capacity_boxes: number; trip_date?: string }) => Promise<void>;
   onSetTripStatus: (tripId: number, status: TripStatus) => Promise<void>;
   onDeleteTrip: (tripId: number) => Promise<void>;
   onSetShipDate: (orderId: number, ship_date: string | null) => Promise<void>;
@@ -83,19 +83,27 @@ export default function Planning({
   const [busyAll, setBusyAll] = useState(false);
   const [detail, setDetail] = useState<Order | null>(null);
   const [day, setDay] = useState<string>('all');
-  const [dragIdx, setDragIdx] = useState<number | null>(null);
   const [mapTrip, setMapTrip] = useState<Trip | null>(null);
   const [sortByDistance, setSortByDistance] = useState(false);
   const [showTripModal, setShowTripModal] = useState(false);
   const [confirmDelTrip, setConfirmDelTrip] = useState<number | null>(null);
-  const selTrip = trips.find((t) => t.id === selectedTrip);
+  // ลากวาง: จำว่ากำลังลากออเดอร์ไหน มาจากเที่ยวไหน (null=จากกองรอจัด) ลำดับที่เท่าไหร่
+  const [drag, setDrag] = useState<{ orderId: number; fromTrip: number | null; idx: number | null } | null>(null);
+  const [dropHint, setDropHint] = useState<string | null>(null); // ไฮไลต์เป้าที่จะวาง
 
   // ---- ตัวกรองวัน: ใช้กับทั้งออเดอร์รอจัด + จุดส่งในเที่ยว ----
   // 'none' = ยังไม่ระบุวัน (ต้องหาให้เจอง่าย ๆ เพราะตอนนี้กำหนดวันกันที่หน้านี้)
   const dayMatch = (o: Order) => day === 'all' || (day === 'none' ? !o.ship_date : o.ship_date === day);
   const allStopsOf = (t: Trip) => t.order_ids.map((id) => orders.find((o) => o.id === id)).filter(Boolean) as Order[];
-  const stopsOf = (t: Trip) => allStopsOf(t).filter(dayMatch); // เฉพาะวันที่เลือก
+  const dayStopsOf = (t: Trip) => allStopsOf(t).filter(dayMatch); // จุดของวันที่เลือก (รวมส่งแล้ว)
+  const stopsOf = (t: Trip) => dayStopsOf(t).filter((o) => o.status !== 'delivered'); // ที่ยังไม่ส่ง
+  const deliveredOf = (t: Trip) => dayStopsOf(t).filter((o) => o.status === 'delivered').length;
   const usedBoxes = (t: Trip) => stopsOf(t).reduce((s, o) => s + o.box_count, 0);
+
+  // เที่ยวรถของวันที่เลือก — วันเจาะจงเห็นเฉพาะรถของวันนั้น, 'ทุกวัน'/'ยังไม่ระบุ' เห็นทุกคัน
+  const isRealDay = day !== 'all' && day !== 'none';
+  const dayTrips = isRealDay ? trips.filter((t) => t.trip_date === day) : trips;
+  const selTrip = dayTrips.find((t) => t.id === selectedTrip) ?? dayTrips[0];
 
   // ขอเส้นทางถนนจริงจาก ORS สำหรับเที่ยวที่เลือก (ทุกจุดต้องรู้พิกัดก่อน)
   useEffect(() => {
@@ -114,7 +122,7 @@ export default function Planning({
 
   // ---- Smart assign: เที่ยวที่แนะนำสำหรับออเดอร์ ----
   const recommendTrip = (o: Order): Trip | null => {
-    const fit = trips.filter((t) => t.zone_id === o.zone_id && usedBoxes(t) + o.box_count <= t.capacity_boxes);
+    const fit = dayTrips.filter((t) => t.zone_id === o.zone_id && usedBoxes(t) + o.box_count <= t.capacity_boxes);
     if (!fit.length) return null;
     const oPt = geocode(o.delivery_location, o.zone_id);
     if (!oPt) return fit[0]; // ไม่รู้พิกัด → แนะนำตามโซน/ความจุอย่างเดียว
@@ -130,12 +138,13 @@ export default function Planning({
     return best;
   };
 
-  // ---- date filter ----
+  // ---- date filter: วันจากออเดอร์รอจัด + วันของเที่ยวที่มีอยู่ ----
   const dayOptions = useMemo(() => {
     const s = new Set<string>();
     unassigned.forEach((o) => o.ship_date && s.add(o.ship_date));
+    trips.forEach((t) => t.trip_date && s.add(t.trip_date));
     return Array.from(s).sort();
-  }, [unassigned]);
+  }, [unassigned, trips]);
   const fmtDay = (d: string) => new Date(d).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' });
 
   // ---- distance from warehouse (null = หาพิกัดไม่ได้) ----
@@ -153,14 +162,20 @@ export default function Planning({
     : filteredOrders;
 
   // ---- ความคืบหน้าการวางแผน (ตามวันที่เลือก) ----
-  const scopeAssigned = trips.reduce((s, t) => s + stopsOf(t).length, 0);
+  const scopeAssigned = dayTrips.reduce((s, t) => s + stopsOf(t).length, 0);
   const scopeTotal = scopeAssigned + filteredOrders.length;
   const progressPct = scopeTotal ? Math.round((scopeAssigned / scopeTotal) * 100) : 0;
   const dayLabel = day === 'all' ? 'ทุกวัน' : fmtDay(day);
 
   // ---- actions ----
+  // ยืนยันก่อน "ย้ายวัน" ถ้าออเดอร์มีวันเดิมที่ไม่ตรงกับวันของเที่ยว (กันเลื่อนวันพลาด)
+  const okToPlace = (o: Order | undefined, t: Trip | undefined) =>
+    !(o?.ship_date && t?.trip_date && o.ship_date !== t.trip_date) ||
+    window.confirm(`${o!.customer_name}\nเดิมกำหนดส่ง ${fmtDay(o!.ship_date!)}\nจะย้ายเป็น ${fmtDay(t!.trip_date)} ตามเที่ยวนี้ไหม?`);
+
   const assign = async (orderId: number, tripId: number) => {
     if (!tripId) return;
+    if (!okToPlace(orders.find((x) => x.id === orderId), trips.find((x) => x.id === tripId))) return;
     setBusy(orderId);
     try { await onAssign(orderId, tripId); } finally { setBusy(null); }
   };
@@ -168,13 +183,41 @@ export default function Planning({
     setBusy(orderId);
     try { await onUnassign(orderId, tripId); } finally { setBusy(null); }
   };
+
+  // ---- ลากวาง (drag & drop) ----
+  const dropOnTrip = async (t: Trip) => {
+    const d = drag; setDrag(null); setDropHint(null);
+    if (!d || d.fromTrip === t.id) return; // วางที่เที่ยวเดิม = ไม่ทำอะไร (จัดลำดับใช้การวางบนจุด)
+    if (!okToPlace(orders.find((x) => x.id === d.orderId), t)) return;
+    setBusy(d.orderId);
+    try {
+      if (d.fromTrip != null) await onUnassign(d.orderId, d.fromTrip);
+      await onAssign(d.orderId, t.id); // App ตั้ง ship_date = วันของเที่ยวให้เอง
+    } finally { setBusy(null); }
+  };
+  const dropOnDay = async (dateKey: string) => {
+    const d = drag; setDrag(null); setDropHint(null);
+    if (!d) return;
+    const newDate = dateKey === 'none' ? null : dateKey;
+    setBusy(d.orderId);
+    try {
+      if (d.fromTrip != null) await onUnassign(d.orderId, d.fromTrip); // เอาออกจากรถ แล้วเปลี่ยนวัน
+      await onSetShipDate(d.orderId, newDate);
+    } finally { setBusy(null); }
+  };
+  const dropOnWaiting = async () => {
+    const d = drag; setDrag(null); setDropHint(null);
+    if (!d || d.fromTrip == null) return;
+    setBusy(d.orderId);
+    try { await onUnassign(d.orderId, d.fromTrip); } finally { setBusy(null); }
+  };
   // จัดอัตโนมัติทั้งหมด: กระจายออเดอร์ที่รอจัดเข้ารถที่เหมาะ (จำลองความจุก่อน)
   const autoAssignAll = async () => {
     const load: Record<number, number> = {};
-    trips.forEach((t) => { load[t.id] = usedBoxes(t); });
+    dayTrips.forEach((t) => { load[t.id] = usedBoxes(t); });
     const plan: Array<[number, number]> = [];
     for (const o of shown) {
-      const fit = trips.filter((t) => t.zone_id === o.zone_id && load[t.id] + o.box_count <= t.capacity_boxes);
+      const fit = dayTrips.filter((t) => t.zone_id === o.zone_id && load[t.id] + o.box_count <= t.capacity_boxes);
       if (!fit.length) continue;
       fit.sort((a, b) => (b.capacity_boxes - load[b.id]) - (a.capacity_boxes - load[a.id])); // รถที่ว่างมากสุดก่อน
       const target = fit[0];
@@ -214,12 +257,13 @@ export default function Planning({
     const parts = [WAREHOUSE_ORIGIN, ...st.map((o) => `${o.delivery_location} ประเทศไทย`)];
     window.open('https://www.google.com/maps/dir/' + parts.map((p) => encodeURIComponent(p)).join('/'), '_blank');
   };
-  const drop = async (t: Trip, dropIdx: number) => {
-    if (dragIdx === null || dragIdx === dropIdx) { setDragIdx(null); return; }
+  // จัดลำดับภายในเที่ยวเดียวกัน (วางจุดบนจุด)
+  const dropReorder = async (t: Trip, dropIdx: number) => {
+    const d = drag; setDrag(null); setDropHint(null);
+    if (!d || d.fromTrip !== t.id || d.idx == null || d.idx === dropIdx) return;
     const dayIds = stopsOf(t).map((o) => o.id);
-    const [moved] = dayIds.splice(dragIdx, 1);
+    const [moved] = dayIds.splice(d.idx, 1);
     dayIds.splice(dropIdx, 0, moved);
-    setDragIdx(null);
     await onReorder(t.id, mergeBack(t, dayIds));
   };
 
@@ -227,7 +271,7 @@ export default function Planning({
   const waitingBoxes = filteredOrders.reduce((s, o) => s + o.box_count, 0);
   const bkkWait = filteredOrders.filter((o) => o.zone_id === 1).length;
   const upcWait = filteredOrders.filter((o) => o.zone_id !== 1).length;
-  const freeTrucks = trips.filter((t) => usedBoxes(t) < t.capacity_boxes).length;
+  const freeTrucks = dayTrips.filter((t) => usedBoxes(t) < t.capacity_boxes).length;
 
   const zoneAccent = (o: Order) => (isUrgent(o) ? '#f43f5e' : o.zone_id === 1 ? '#6366f1' : '#f59e0b');
 
@@ -260,26 +304,38 @@ export default function Planning({
         </div>
         <div className="ps-card">
           <div className="ps-ico" style={{ background: '#dcfce7', color: '#10b981' }}><IconTruck width={18} height={18} /></div>
-          <div><div className="ps-val">{freeTrucks} <span>/ {trips.length} คัน</span></div><div className="ps-label">รถที่ยังรับได้</div></div>
+          <div><div className="ps-val">{freeTrucks} <span>/ {dayTrips.length} คัน</span></div><div className="ps-label">รถที่ยังรับได้</div></div>
         </div>
       </div>
 
-      {/* ฟิลเตอร์วันกำหนดจัดส่ง + เรียงตามระยะ */}
+      {/* ฟิลเตอร์วันกำหนดจัดส่ง + เรียงตามระยะ (ลากออเดอร์มาวางบนวัน = เปลี่ยนวันส่ง) */}
       <div className="filter-bar">
-        <span className="filter-label">กำหนดจัดส่ง:</span>
+        <span className="filter-label">เลือกวันที่จะจัด:</span>
         <button className={`chip${day === 'all' ? ' active' : ''}`} onClick={() => setDay('all')}>
           ทุกวัน <span className="chip-count">{unassigned.length}</span>
         </button>
         {dayOptions.map((d) => (
-          <button key={d} className={`chip${day === d ? ' active' : ''}`} onClick={() => setDay(d)}>
+          <button
+            key={d}
+            className={`chip${day === d ? ' active' : ''}${dropHint === `day:${d}` ? ' drop-on' : ''}${drag ? ' droppable' : ''}`}
+            onClick={() => setDay(d)}
+            onDragOver={(e) => { e.preventDefault(); setDropHint(`day:${d}`); }}
+            onDragLeave={() => setDropHint((h) => (h === `day:${d}` ? null : h))}
+            onDrop={() => dropOnDay(d)}
+          >
             {fmtDay(d)} <span className="chip-count">{unassigned.filter((o) => o.ship_date === d).length}</span>
           </button>
         ))}
-        {unassigned.some((o) => !o.ship_date) && (
-          <button className={`chip chip-nodate${day === 'none' ? ' active' : ''}`} onClick={() => setDay('none')} title="ออเดอร์ที่ยังไม่ได้กำหนดวันส่ง">
-            ⚠ ยังไม่ระบุวัน <span className="chip-count">{unassigned.filter((o) => !o.ship_date).length}</span>
-          </button>
-        )}
+        <button
+          className={`chip chip-nodate${day === 'none' ? ' active' : ''}${dropHint === 'day:none' ? ' drop-on' : ''}${drag ? ' droppable' : ''}`}
+          onClick={() => setDay('none')}
+          title="ออเดอร์ที่ยังไม่ได้กำหนดวันส่ง · ลากมาวางเพื่อล้างวัน"
+          onDragOver={(e) => { e.preventDefault(); setDropHint('day:none'); }}
+          onDragLeave={() => setDropHint((h) => (h === 'day:none' ? null : h))}
+          onDrop={() => dropOnDay('none')}
+        >
+          ⚠ ยังไม่ระบุวัน <span className="chip-count">{unassigned.filter((o) => !o.ship_date).length}</span>
+        </button>
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
           <button
             className={`btn btn-ghost xs${sortByDistance ? ' active' : ''}`}
@@ -297,22 +353,33 @@ export default function Planning({
           <div className="card-header">
             <div>
               <h3>ออเดอร์รอจัดรถ</h3>
-              <div className="sub">คลิกการ์ดเพื่อดูรายละเอียด · ระบบแนะนำรถที่เหมาะให้</div>
+              <div className="sub">ลากการ์ดไปวางบนรถ (ขวา) หรือบนวัน (บน) · คลิกดูรายละเอียด</div>
             </div>
             <span className="sub">{shown.length} รายการ</span>
           </div>
-          <div className="card-scroll">
+          <div
+            className={`card-scroll${dropHint === 'waiting' && drag?.fromTrip != null ? ' drop-on' : ''}`}
+            onDragOver={(e) => { if (drag?.fromTrip != null) { e.preventDefault(); setDropHint('waiting'); } }}
+            onDragLeave={() => setDropHint((h) => (h === 'waiting' ? null : h))}
+            onDrop={dropOnWaiting}
+          >
             {shown.length === 0 ? (
               <div className="empty-plan">
                 <div className="empty-plan-ico"><IconTruck width={30} height={30} /></div>
                 <div style={{ fontWeight: 600 }}>จัดครบทุกออเดอร์แล้ว 🎉</div>
-                <div className="sub">ไม่มีออเดอร์รอจัดรถในวันนี้</div>
+                <div className="sub">ไม่มีออเดอร์รอจัดรถในวันนี้{drag?.fromTrip != null ? ' · วางที่นี่เพื่อนำออกจากรถ' : ''}</div>
               </div>
             ) : (
               shown.map((o) => {
                 const rec = recommendTrip(o);
                 return (
-                  <div key={o.id} className="wait-card">
+                  <div
+                    key={o.id}
+                    className={`wait-card${drag?.orderId === o.id ? ' dragging' : ''}`}
+                    draggable
+                    onDragStart={() => setDrag({ orderId: o.id, fromTrip: null, idx: null })}
+                    onDragEnd={() => { setDrag(null); setDropHint(null); }}
+                  >
                     <div className="wait-accent" style={{ background: zoneAccent(o) }} />
                     <div style={{ flex: 1, minWidth: 0, cursor: 'pointer' }} onClick={() => setDetail(o)}>
                       <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 3, flexWrap: 'wrap' }}>
@@ -349,10 +416,10 @@ export default function Planning({
                       </div>
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignSelf: 'center' }}>
-                      <button className="btn btn-primary" style={{ whiteSpace: 'nowrap' }} disabled={busy === o.id || !selectedTrip} onClick={() => assign(o.id, selectedTrip)}>
+                      <button className="btn btn-primary" style={{ whiteSpace: 'nowrap' }} disabled={busy === o.id || !selTrip} onClick={() => selTrip && assign(o.id, selTrip.id)}>
                         {busy === o.id ? '…' : `จัดเข้า ${selTrip ? tripLabel(selTrip) : 'เที่ยว'}`}
                       </button>
-                      {rec && rec.id !== selectedTrip && (
+                      {rec && rec.id !== selTrip?.id && (
                         <button className="btn btn-ghost mini" disabled={busy === o.id} onClick={() => assign(o.id, rec.id)}>
                           จัดตามแนะนำ
                         </button>
@@ -365,49 +432,57 @@ export default function Planning({
           </div>
         </div>
 
-        {/* ขวา: เที่ยวรถ */}
+        {/* ขวา: เที่ยวรถ (ของวันที่เลือก) */}
         <div className="card">
           <div className="card-header">
             <div>
-              <h3>เที่ยวรถ · {dayLabel}</h3>
-              <div className="sub">มาตรวัดความจุ · ไทม์ไลน์เส้นทาง · ลากวางปรับลำดับได้</div>
+              <h3>รถออก · {dayLabel}</h3>
+              <div className="sub">ลากออเดอร์มาวางบนรถ = จัดเข้าเที่ยว (ตั้งวันส่งให้อัตโนมัติ)</div>
             </div>
             <button className="btn btn-primary" onClick={() => setShowTripModal(true)}>
-              <IconPlus /> สร้างเที่ยว
+              <IconPlus /> สร้างเที่ยว{isRealDay ? ` (${fmtDay(day)})` : ''}
             </button>
           </div>
           <div className="card-scroll">
-            {trips.map((t) => {
+            {dayTrips.length === 0 && (
+              <div className="empty-plan">
+                <div className="empty-plan-ico"><IconTruck width={30} height={30} /></div>
+                <div style={{ fontWeight: 600 }}>ยังไม่มีรถของวันนี้</div>
+                <div className="sub">กด “สร้างเที่ยว” เพื่อเพิ่มรถสำหรับ {isRealDay ? fmtDay(day) : 'วันนี้'}</div>
+              </div>
+            )}
+            {dayTrips.map((t) => {
               const stops = stopsOf(t);
+              const doneCount = deliveredOf(t);
               const used = usedBoxes(t);
               const pct = Math.round((used / t.capacity_boxes) * 100);
               const over = used > t.capacity_boxes;
-              const active = t.id === selectedTrip;
+              const active = t.id === selTrip?.id;
               const capColor = over ? '#f43f5e' : pct > 80 ? '#f59e0b' : '#10b981';
               const plan = active ? routePlan(stops.map((o) => geocode(o.delivery_location, o.zone_id))) : null;
               const codTotal = stops.reduce((s, o) => s + o.cod_amount, 0);
-              // วันกำหนดส่งของเที่ยวนี้ (แสดงตอนเลือก 'ทุกวัน')
-              const tripDates = day === 'all' ? [...new Set(stops.map((o) => o.ship_date || 'none'))].sort() : [];
+              const canDrop = drag && drag.fromTrip !== t.id;
               return (
-                <div key={t.id} className={`plan-trip${active ? ' active' : ''}`} onClick={() => setSelectedTrip(t.id)}>
+                <div
+                  key={t.id}
+                  className={`plan-trip${active ? ' active' : ''}${canDrop ? ' droppable' : ''}${dropHint === `trip:${t.id}` ? ' drop-on' : ''}`}
+                  onClick={() => setSelectedTrip(t.id)}
+                  onDragOver={(e) => { if (canDrop) { e.preventDefault(); setDropHint(`trip:${t.id}`); } }}
+                  onDragLeave={() => setDropHint((h) => (h === `trip:${t.id}` ? null : h))}
+                  onDrop={() => dropOnTrip(t)}
+                >
                   <div className="plan-trip-head">
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontWeight: 700, display: 'flex', gap: 8, alignItems: 'center' }}>
                         {tripLabel(t)}
+                        <span className="trip-date-chip">🗓 {fmtDay(t.trip_date)}</span>
                         <span className="zone-pill">{shortZone(t.zone_name)}</span>
                       </div>
                       <div className="sub" style={{ color: '#94a3b8' }}>{t.vehicle_type}</div>
                       <div className="cap-note" style={{ color: over ? 'var(--rose)' : '#64748b' }}>
                         {used} / {t.capacity_boxes} กล่อง · {over ? `เกิน ${pct - 100}%` : `รับเพิ่มได้ ${t.capacity_boxes - used}`}
+                        {doneCount > 0 && <span className="done-note"> · ✓ ส่งแล้ว {doneCount}</span>}
                       </div>
-                      {tripDates.length > 0 && (
-                        <div className="trip-dates">
-                          <span className="trip-dates-lb">🗓️ กำหนดส่ง</span>
-                          {tripDates.map((dd) => (
-                            <span key={dd} className={`trip-date-chip${dd === 'none' ? ' none' : ''}`}>{dd === 'none' ? 'ไม่ระบุวัน' : fmtDay(dd)}</span>
-                          ))}
-                        </div>
-                      )}
                     </div>
                     <CapGauge pct={pct} color={capColor} />
                   </div>
@@ -443,11 +518,12 @@ export default function Planning({
                             return (
                               <div
                                 key={o.id}
-                                className={`tl-stop${dragIdx === i ? ' dragging' : ''}`}
+                                className={`tl-stop${drag?.orderId === o.id ? ' dragging' : ''}`}
                                 draggable
-                                onDragStart={() => setDragIdx(i)}
-                                onDragOver={(e) => e.preventDefault()}
-                                onDrop={() => drop(t, i)}
+                                onDragStart={(e) => { e.stopPropagation(); setDrag({ orderId: o.id, fromTrip: t.id, idx: i }); }}
+                                onDragEnd={() => { setDrag(null); setDropHint(null); }}
+                                onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                                onDrop={(e) => { e.stopPropagation(); if (drag?.fromTrip === t.id) dropReorder(t, i); else dropOnTrip(t); }}
                               >
                                 <div className="tl-dot">{i + 1}</div>
                                 <div style={{ flex: 1, minWidth: 0, cursor: 'pointer' }} onClick={() => setDetail(o)}>
@@ -521,7 +597,11 @@ export default function Planning({
           drivers={drivers}
           zones={zones}
           onClose={() => setShowTripModal(false)}
-          onCreate={async (input) => { await onCreateTrip(input); setShowTripModal(false); }}
+          onCreate={async (input) => {
+            const trip_date = isRealDay ? day : new Date().toLocaleDateString('sv-SE');
+            await onCreateTrip({ ...input, trip_date });
+            setShowTripModal(false);
+          }}
         />
       )}
     </>

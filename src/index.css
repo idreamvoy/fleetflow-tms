@@ -373,6 +373,18 @@ table.data tbody tr:last-child td { border-bottom: none; }
 .stop-date-input { font-size: 11px; padding: 1px 6px; border: 1px solid #bae6fd; border-radius: 6px; background: #e0f2fe; color: #0369a1; font-weight: 700; font-family: inherit; }
 .stop-date-input.empty { border-color: #fbbf24; background: #fffbeb; color: #b45309; }
 .readonly-note { padding: 8px 11px; background: #f8fafc; border: 1px dashed var(--border); border-radius: 9px; color: #64748b; font-size: 13px; }
+.done-note { color: #10b981; font-weight: 600; }
+
+/* ลากวาง (drag & drop) */
+.wait-card[draggable="true"] { cursor: grab; }
+.wait-card.dragging, .tl-stop.dragging { opacity: 0.45; }
+.plan-trip.droppable { border-style: dashed; }
+.plan-trip.drop-on { border-color: var(--indigo); background: #eef2ff; box-shadow: 0 0 0 2px #6366f133; }
+.card-scroll.drop-on { background: #fff1f2; outline: 2px dashed #fecdd3; outline-offset: -6px; border-radius: 12px; }
+.chip.droppable { border-style: dashed; }
+.chip.drop-on { background: var(--indigo); color: #fff; border-color: var(--indigo); }
+.chip.chip-nodate.drop-on { background: #f59e0b; border-color: #f59e0b; }
+
 .chip-nodate { border-color: #fbbf24; color: #b45309; }
 .chip-nodate.active { background: #f59e0b; border-color: #f59e0b; color: #fff; }
 .chip-nodate.active .chip-count { background: #ffffff33; color: #fff; }
