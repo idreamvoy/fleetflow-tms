@@ -216,9 +216,9 @@ export default function App() {
       await db.deleteTrip(tripId);
       await loadAll();
       flash('ลบเที่ยวรถแล้ว · ออเดอร์กลับไปรอจัดรถ');
-    } catch (e) {
+    } catch (e: any) {
       console.error('deleteTrip', e);
-      flash('ลบเที่ยวไม่สำเร็จ — ลองใหม่อีกครั้ง');
+      flash(`ลบไม่สำเร็จ — ${e?.message ?? e}`);
     }
   }
 

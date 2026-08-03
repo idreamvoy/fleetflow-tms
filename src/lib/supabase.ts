@@ -534,13 +534,15 @@ export const db = {
     const trip = (await this.getTrips()).find((t) => t.id === id);
     // 1) ปล่อยออเดอร์ (ที่ยังไม่ส่ง) กลับไปรอจัดรถ ไม่งั้นจะค้างสถานะ waiting_ship แล้วหายจากกอง
     if (trip?.order_ids.length) {
-      await supabase.from('orders').update({ status: 'ready' }).in('id', trip.order_ids).eq('status', 'waiting_ship');
+      const { error } = await supabase.from('orders').update({ status: 'ready' }).in('id', trip.order_ids).eq('status', 'waiting_ship');
+      if (error) throw new Error(`ปล่อยออเดอร์กลับ: ${error.message}${error.code ? ` [${error.code}]` : ''}`);
     }
     // 2) ลบจุดส่งเองก่อน (ไม่พึ่ง cascade เผื่อ DB ตั้งค่ามาไม่มี ON DELETE CASCADE)
-    await supabase.from('trip_stops').delete().eq('trip_id', id);
+    const { error: eStops } = await supabase.from('trip_stops').delete().eq('trip_id', id);
+    if (eStops) throw new Error(`ลบจุดส่ง (trip_stops): ${eStops.message}${eStops.code ? ` [${eStops.code}]` : ''}`);
     // 3) ลบเที่ยว
     const { error } = await supabase.from('trips').delete().eq('id', id);
-    if (error) throw error;
+    if (error) throw new Error(`ลบเที่ยว (trips): ${error.message}${error.code ? ` [${error.code}]` : ''}`);
   },
 
   async updateTripStatus(id: number, status: TripStatus): Promise<void> {
