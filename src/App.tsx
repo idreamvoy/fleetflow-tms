@@ -212,9 +212,14 @@ export default function App() {
     flash(`อัปเดตสถานะ TR-${String(tripId).padStart(2, '0')} แล้ว ✓`);
   }
   async function handleDeleteTrip(tripId: number) {
-    await db.deleteTrip(tripId);
-    await loadAll();
-    flash(`ลบเที่ยว TR-${String(tripId).padStart(2, '0')} แล้ว`);
+    try {
+      await db.deleteTrip(tripId);
+      await loadAll();
+      flash('ลบเที่ยวรถแล้ว · ออเดอร์กลับไปรอจัดรถ');
+    } catch (e) {
+      console.error('deleteTrip', e);
+      flash('ลบเที่ยวไม่สำเร็จ — ลองใหม่อีกครั้ง');
+    }
   }
 
   // ตัวเลข badge/สถานะจริง (แทนค่าคงที่)

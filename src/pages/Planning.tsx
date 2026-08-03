@@ -5,6 +5,8 @@ import { IconRoute, IconPin, IconTruck, IconBox, IconPlus } from '../components/
 import OrderDetail from '../components/OrderDetail';
 import MapModal from '../components/MapModal';
 import TripModal from '../components/TripModal';
+import OrdersMapView from '../components/OrdersMapView';
+import { IconGrid } from '../components/icons';
 
 const shortZone = (name?: string | null) => {
   const n = name ?? '';
@@ -87,6 +89,7 @@ export default function Planning({
   const [sortByDistance, setSortByDistance] = useState(false);
   const [showTripModal, setShowTripModal] = useState(false);
   const [confirmDelTrip, setConfirmDelTrip] = useState<number | null>(null);
+  const [planView, setPlanView] = useState<'board' | 'map'>('board');
   // ลากวาง: จำว่ากำลังลากออเดอร์ไหน มาจากเที่ยวไหน (null=จากกองรอจัด) ลำดับที่เท่าไหร่
   const [drag, setDrag] = useState<{ orderId: number; fromTrip: number | null; idx: number | null } | null>(null);
   const [dropHint, setDropHint] = useState<string | null>(null); // ไฮไลต์เป้าที่จะวาง
@@ -277,6 +280,20 @@ export default function Planning({
 
   return (
     <>
+      {/* สลับมุมมอง: กระดานจัดรถ ⟷ แผนที่ออเดอร์ */}
+      <div className="tabs" style={{ marginBottom: 16 }}>
+        <button className={`tab${planView === 'board' ? ' active' : ''}`} onClick={() => setPlanView('board')}>
+          <IconGrid width={16} height={16} /> จัดรถ
+        </button>
+        <button className={`tab${planView === 'map' ? ' active' : ''}`} onClick={() => setPlanView('map')}>
+          <IconPin width={16} height={16} /> แผนที่ออเดอร์
+        </button>
+      </div>
+
+      {planView === 'map' ? (
+        <OrdersMapView orders={orders} zones={zones} />
+      ) : (
+      <>
       {/* Hero: ความคืบหน้า + จัดอัตโนมัติ */}
       <div className="plan-hero">
         <div className="plan-hero-ico"><IconRoute width={24} height={24} /></div>
@@ -587,6 +604,8 @@ export default function Planning({
           </div>
         </div>
       </div>
+      </>
+      )}
 
       <OrderDetail order={detail} onClose={() => setDetail(null)} />
 

@@ -524,8 +524,21 @@ export const db = {
   },
 
   async deleteTrip(id: number): Promise<void> {
-    if (!supabase) { demoTrips = demoTrips.filter((t) => t.id !== id); return; }
-    // ปล่อยออเดอร์กลับไปรอจัดรถก่อนลบ (trip_stops จะถูกลบ cascade)
+    if (!supabase) {
+      const t = demoTrips.find((x) => x.id === id);
+      // ออเดอร์ที่ยังไม่ส่ง กลับไปรอจัดรถ (delivered/COD คงสถานะไว้)
+      if (t) demoOrders = demoOrders.map((o) => (t.order_ids.includes(o.id) && o.status === 'waiting_ship' ? { ...o, status: 'ready' as OrderStatus } : o));
+      demoTrips = demoTrips.filter((x) => x.id !== id);
+      return;
+    }
+    const trip = (await this.getTrips()).find((t) => t.id === id);
+    // 1) ปล่อยออเดอร์ (ที่ยังไม่ส่ง) กลับไปรอจัดรถ ไม่งั้นจะค้างสถานะ waiting_ship แล้วหายจากกอง
+    if (trip?.order_ids.length) {
+      await supabase.from('orders').update({ status: 'ready' }).in('id', trip.order_ids).eq('status', 'waiting_ship');
+    }
+    // 2) ลบจุดส่งเองก่อน (ไม่พึ่ง cascade เผื่อ DB ตั้งค่ามาไม่มี ON DELETE CASCADE)
+    await supabase.from('trip_stops').delete().eq('trip_id', id);
+    // 3) ลบเที่ยว
     const { error } = await supabase.from('trips').delete().eq('id', id);
     if (error) throw error;
   },
