@@ -69,7 +69,16 @@ export interface OrderItem {
   boxes: number; // กล่อง (คำนวณ)
   note: string; // หมายเหตุ
   delivered_qty?: number | null; // ส่งได้จริง (partial)
-  item_status?: ItemDeliveryStatus | null; // สถานะการส่งรายรายการ
+  item_status?: ItemDeliveryStatus | null; // สถานะการส่งรายรายการ (ตอนส่ง)
+  ready?: boolean | null; // ความพร้อมก่อนส่ง (false = กำลังผลิต · ว่าง/true = พร้อม)
+}
+
+// ความพร้อมก่อนส่ง — ค่าว่าง/undefined ถือว่าพร้อม (ของเดิมทั้งหมด = พร้อม)
+export const isItemReady = (it: { ready?: boolean | null }) => it.ready !== false;
+export function orderReadiness(items: Array<{ ready?: boolean | null }>) {
+  const total = items.length;
+  const ready = items.filter(isItemReady).length;
+  return { ready, total, allReady: total > 0 && ready === total, someReady: ready > 0 && ready < total, noneReady: total > 0 && ready === 0 };
 }
 
 // ใบสั่งขาย (sales order)

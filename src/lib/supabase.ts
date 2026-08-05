@@ -439,6 +439,19 @@ export const db = {
     if (error) throw error;
   },
 
+  // ความพร้อมรายรายการสินค้า (ก่อนส่ง) — เขียนเฉพาะที่นี่ ไม่ยุ่งกับ add/updateOrder
+  async updateItemReady(itemId: number, ready: boolean): Promise<void> {
+    if (!supabase) {
+      demoOrders = demoOrders.map((o) => ({
+        ...o,
+        items: o.items.map((it) => (it.id === itemId ? { ...it, ready } : it)),
+      }));
+      return;
+    }
+    const { error } = await supabase.from('order_items').update({ ready }).eq('id', itemId);
+    if (error) throw error;
+  },
+
   async updateOrderStatus(id: number, status: OrderStatus): Promise<void> {
     if (!supabase) {
       demoOrders = demoOrders.map((o) => (o.id === id ? { ...o, status } : o));

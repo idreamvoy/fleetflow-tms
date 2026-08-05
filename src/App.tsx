@@ -104,6 +104,22 @@ export default function App() {
     flash(ok === newOrders.length ? `นำเข้า ${ok} ออเดอร์สำเร็จ ✓` : `นำเข้าสำเร็จ ${ok}/${newOrders.length} ออเดอร์`);
   }
 
+  async function handleToggleItemReady(orderId: number, itemId: number, ready: boolean) {
+    await db.updateItemReady(itemId, ready);
+    // คำนวณจากสเตตปัจจุบัน + ค่าที่เพิ่งสลับ (ไม่พึ่งผลลัพธ์ของ setOrders ที่ทำงานทีหลัง)
+    const o = orders.find((x) => x.id === orderId);
+    const allReady = !!o && o.items.length > 0 && o.items.every((it) => (it.id === itemId ? ready : it.ready !== false));
+    // เด้งเป็น "พร้อมส่ง" อัตโนมัติเมื่อครบ — เฉพาะออเดอร์ที่ยังไม่ระบุสถานะ
+    const bump = !!o && allReady && o.status === 'unspecified';
+    setOrders((prev) => prev.map((x) => {
+      if (x.id !== orderId) return x;
+      const items = x.items.map((it) => (it.id === itemId ? { ...it, ready } : it));
+      return { ...x, items, status: bump ? ('ready' as OrderStatus) : x.status };
+    }));
+    if (bump) await db.updateOrderStatus(orderId, 'ready');
+    flash(bump ? 'ครบทุกรายการ · เปลี่ยนเป็นพร้อมส่งแล้ว ✓' : ready ? 'ทำเครื่องหมายพร้อมแล้ว ✓' : 'ทำเครื่องหมายกำลังผลิต');
+  }
+
   async function handleStatusChange(id: number, status: OrderStatus) {
     await db.updateOrderStatus(id, status);
     setOrders((prev) => prev.map((x) => (x.id === id ? { ...x, status } : x)));
@@ -265,9 +281,9 @@ export default function App() {
           ) : page === 'dashboard' ? (
             <Dashboard orders={orders} zones={zones} />
           ) : page === 'orders' ? (
-            <Orders orders={filteredOrders} onAdd={openAdd} onImport={() => setShowImport(true)} onEdit={openEdit} onStatusChange={handleStatusChange} onDelete={handleDelete} />
+            <Orders orders={filteredOrders} onAdd={openAdd} onImport={() => setShowImport(true)} onEdit={openEdit} onStatusChange={handleStatusChange} onDelete={handleDelete} onToggleItemReady={handleToggleItemReady} />
           ) : page === 'planning' ? (
-            <Planning orders={orders} trips={trips} drivers={drivers} zones={zones} onAssign={handleAssign} onUnassign={handleUnassign} onReorder={handleReorder} onSetTripDriver={handleSetTripDriver} onCreateTrip={handleCreateTrip} onSetTripStatus={handleSetTripStatus} onDeleteTrip={handleDeleteTrip} onSetShipDate={handleSetShipDate} />
+            <Planning orders={orders} trips={trips} drivers={drivers} zones={zones} onAssign={handleAssign} onUnassign={handleUnassign} onReorder={handleReorder} onSetTripDriver={handleSetTripDriver} onCreateTrip={handleCreateTrip} onSetTripStatus={handleSetTripStatus} onDeleteTrip={handleDeleteTrip} onSetShipDate={handleSetShipDate} onToggleItemReady={handleToggleItemReady} />
           ) : page === 'tracking' ? (
             <Tracking trips={trips} orders={orders} />
           ) : page === 'driver' ? (

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useReducer, useState } from 'react';
 import type { Order, Trip, Driver, Zone, OrderStatus, TripStatus } from '../lib/types';
-import { TRIP_STATUS_LABEL } from '../lib/types';
+import { TRIP_STATUS_LABEL, orderReadiness } from '../lib/types';
 import { IconRoute, IconPin, IconTruck, IconBox, IconPlus } from '../components/icons';
 import OrderDetail from '../components/OrderDetail';
 import MapModal from '../components/MapModal';
@@ -57,6 +57,7 @@ export default function Planning({
   onSetTripStatus,
   onDeleteTrip,
   onSetShipDate,
+  onToggleItemReady,
 }: {
   orders: Order[];
   trips: Trip[];
@@ -70,6 +71,7 @@ export default function Planning({
   onSetTripStatus: (tripId: number, status: TripStatus) => Promise<void>;
   onDeleteTrip: (tripId: number) => Promise<void>;
   onSetShipDate: (orderId: number, ship_date: string | null) => Promise<void>;
+  onToggleItemReady: (orderId: number, itemId: number, ready: boolean) => Promise<void>;
 }) {
   const assignedIds = useMemo(() => new Set(trips.flatMap((t) => t.order_ids)), [trips]);
   const unassigned = orders.filter((o) => !assignedIds.has(o.id) && WAITING_STATUSES.includes(o.status));
@@ -403,6 +405,7 @@ export default function Planning({
                       <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 3, flexWrap: 'wrap' }}>
                         <code>{o.order_no}</code>
                         <span className="zone-pill">{o.zone_id === 1 ? 'กทม.' : 'ต่างจังหวัด'}</span>
+                        {(() => { const rd = orderReadiness(o.items); return !rd.allReady ? <span className={`ready-badge ${rd.noneReady ? 'none' : 'some'}`}>พร้อม {rd.ready}/{rd.total}</span> : null; })()}
                         {isUrgent(o) && <span className="warn-tag urgent">🔥 ด่วน</span>}
                       </div>
                       <div style={{ fontWeight: 700, fontSize: 15 }}>{o.customer_name}</div>
@@ -608,7 +611,7 @@ export default function Planning({
       </>
       )}
 
-      <OrderDetail order={detail} onClose={() => setDetail(null)} />
+      <OrderDetail order={detail ? orders.find((o) => o.id === detail.id) ?? detail : null} onClose={() => setDetail(null)} onToggleItemReady={onToggleItemReady} />
 
       {mapTrip && <MapModal orders={orders} trip={mapTrip} onClose={() => setMapTrip(null)} />}
 

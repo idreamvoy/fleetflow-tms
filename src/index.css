@@ -375,6 +375,18 @@ table.data tbody tr:last-child td { border-bottom: none; }
 .readonly-note { padding: 8px 11px; background: #f8fafc; border: 1px dashed var(--border); border-radius: 9px; color: #64748b; font-size: 13px; }
 .done-note { color: #10b981; font-weight: 600; }
 
+/* ความพร้อมรายรายการสินค้า (เฟส 1) */
+.ready-badge { display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
+.ready-badge.all  { color: #059669; background: #dcfce7; }
+.ready-badge.some { color: #b45309; background: #fef3c7; }
+.ready-badge.none { color: #b91c1c; background: #fee2e2; }
+.ready-toggle { font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 999px; border: 1px solid transparent; cursor: pointer; white-space: nowrap; }
+.ready-toggle.sm { font-size: 11px; padding: 1px 7px; }
+.ready-toggle.ready  { color: #059669; background: #dcfce7; border-color: #a7f3d0; }
+.ready-toggle.making { color: #b45309; background: #fef3c7; border-color: #fcd34d; }
+.ready-toggle:hover { filter: brightness(0.96); }
+.detail-item-row.item-making { background: #fffbeb; border-radius: 8px; }
+
 /* ลากวาง (drag & drop) */
 .wait-card[draggable="true"] { cursor: grab; }
 .wait-card.dragging, .tl-stop.dragging { opacity: 0.45; }

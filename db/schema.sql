@@ -79,7 +79,8 @@ CREATE TABLE order_items (
   boxes          INT NOT NULL DEFAULT 1,   -- กล่อง
   note           TEXT DEFAULT '',
   delivered_qty  INT,                      -- ส่งได้จริง (partial)
-  item_status    TEXT DEFAULT 'pending'    -- pending/delivered/partial/returned
+  item_status    TEXT DEFAULT 'pending',   -- pending/delivered/partial/returned (ตอนส่ง)
+  ready          BOOLEAN NOT NULL DEFAULT TRUE  -- ความพร้อมก่อนส่ง (FALSE = กำลังผลิต)
 );
 
 -- ---------- รอบจัดส่ง ----------

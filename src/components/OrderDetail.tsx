@@ -1,10 +1,20 @@
 import type { Order } from '../lib/types';
+import { isItemReady, orderReadiness } from '../lib/types';
 import { StatusBadge } from './badges';
 import { IconBox, IconPin, IconMoney, IconTruck } from './icons';
 
-export default function OrderDetail({ order, onClose }: { order: Order | null; onClose: () => void }) {
+export default function OrderDetail({
+  order,
+  onClose,
+  onToggleItemReady,
+}: {
+  order: Order | null;
+  onClose: () => void;
+  onToggleItemReady?: (orderId: number, itemId: number, ready: boolean) => void;
+}) {
   if (!order) return null;
   const totalQty = order.items.reduce((s, it) => s + it.qty, 0);
+  const rd = orderReadiness(order.items);
   return (
     <div className="drawer-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
       <aside className="drawer">
@@ -18,7 +28,12 @@ export default function OrderDetail({ order, onClose }: { order: Order | null; o
         </div>
 
         <div className="drawer-body">
-          <div className="detail-row"><StatusBadge status={order.status} /></div>
+          <div className="detail-row" style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+            <StatusBadge status={order.status} />
+            <span className={`ready-badge ${rd.allReady ? 'all' : rd.noneReady ? 'none' : 'some'}`}>
+              {rd.allReady ? '✓ พร้อมส่งครบ' : `พร้อม ${rd.ready}/${rd.total} รายการ`}
+            </span>
+          </div>
 
           <div className="detail-grid">
             <div className="detail-item"><span className="di-ico"><IconPin width={15} height={15} /></span>
@@ -35,21 +50,42 @@ export default function OrderDetail({ order, onClose }: { order: Order | null; o
             </div>
           </div>
 
-          <div className="detail-section-title">รายการสินค้า ({order.items.length})</div>
+          <div className="detail-section-title">
+            รายการสินค้า ({order.items.length})
+            {onToggleItemReady && <span className="sub" style={{ fontWeight: 400 }}> · แตะป้ายเพื่อสลับพร้อม/กำลังผลิต</span>}
+          </div>
           <div className="detail-items">
-            {order.items.map((it) => (
-              <div className="detail-item-row" key={it.id}>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div className="col-tag">{it.collection}</div>
-                  <div style={{ fontWeight: 600 }}>{it.product_name}</div>
-                  {it.note ? <div className="sub" style={{ color: '#f59e0b' }}>* {it.note}</div> : null}
+            {order.items.map((it) => {
+              const ready = isItemReady(it);
+              return (
+                <div className={`detail-item-row${ready ? '' : ' item-making'}`} key={it.id}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div className="col-tag">{it.collection}</div>
+                    <div style={{ fontWeight: 600 }}>{it.product_name}</div>
+                    {it.note ? <div className="sub" style={{ color: '#f59e0b' }}>* {it.note}</div> : null}
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <div style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                      <div style={{ fontWeight: 700 }}>{it.boxes} กล่อง</div>
+                      <div className="sub">{it.qty.toLocaleString()} ชิ้น · {it.pieces_per_box}/กล่อง</div>
+                    </div>
+                    {onToggleItemReady ? (
+                      <button
+                        className={`ready-toggle ${ready ? 'ready' : 'making'}`}
+                        title="แตะเพื่อสลับสถานะความพร้อม"
+                        onClick={() => onToggleItemReady(order.id, it.id, !ready)}
+                      >
+                        {ready ? '🟢 พร้อม' : '🟡 กำลังผลิต'}
+                      </button>
+                    ) : (
+                      <span className={`ready-toggle ${ready ? 'ready' : 'making'}`} style={{ pointerEvents: 'none' }}>
+                        {ready ? '🟢 พร้อม' : '🟡 กำลังผลิต'}
+                      </span>
+                    )}
+                  </div>
                 </div>
-                <div style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
-                  <div style={{ fontWeight: 700 }}>{it.boxes} กล่อง</div>
-                  <div className="sub">{it.qty.toLocaleString()} ชิ้น · {it.pieces_per_box}/กล่อง</div>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </aside>

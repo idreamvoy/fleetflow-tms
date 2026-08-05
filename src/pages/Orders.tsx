@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import type { Order, OrderStatus, ShippingMethod } from '../lib/types';
+import { isItemReady, orderReadiness } from '../lib/types';
 import { STATUS_LABEL, STATUS_COLOR } from '../components/badges';
 import { slaOf, SLA_COLOR } from '../lib/sla';
 import { IconPlus, IconDownload, IconUpload } from '../components/icons';
@@ -38,6 +39,7 @@ export default function Orders({
   onEdit,
   onStatusChange,
   onDelete,
+  onToggleItemReady,
 }: {
   orders: Order[];
   onAdd: () => void;
@@ -45,6 +47,7 @@ export default function Orders({
   onEdit: (order: Order) => void;
   onStatusChange: (id: number, status: OrderStatus) => void;
   onDelete: (id: number) => void;
+  onToggleItemReady: (orderId: number, itemId: number, ready: boolean) => void;
 }) {
   const [tab, setTab] = useState<ShippingMethod>('company');
   const [statusFilter, setStatusFilter] = useState<OrderStatus | 'all'>('all');
@@ -160,7 +163,16 @@ export default function Orders({
                       )}
                       <td>
                         <div className="col-tag">{it.collection}</div>
-                        <div>{it.product_name}</div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                          <span>{it.product_name}</span>
+                          <button
+                            className={`ready-toggle sm ${isItemReady(it) ? 'ready' : 'making'}`}
+                            title="แตะเพื่อสลับ พร้อม / กำลังผลิต"
+                            onClick={() => onToggleItemReady(o.id, it.id, !isItemReady(it))}
+                          >
+                            {isItemReady(it) ? '🟢 พร้อม' : '🟡 ผลิต'}
+                          </button>
+                        </div>
                         {it.note ? <div className="sub" style={{ color: '#f59e0b' }}>* {it.note}</div> : null}
                       </td>
                       <td className="num">{it.qty.toLocaleString()}<div className="sub">{it.pieces_per_box}/กล่อง</div></td>
@@ -172,6 +184,9 @@ export default function Orders({
                               <option key={s} value={s}>{s === 'oem' ? 'OEM' : STATUS_LABEL[s]}</option>
                             ))}
                           </select>
+                          {(() => { const rd = orderReadiness(o.items); return !rd.allReady ? (
+                            <div className={`ready-badge ${rd.noneReady ? 'none' : 'some'}`} style={{ marginTop: 4 }}>พร้อม {rd.ready}/{rd.total}</div>
+                          ) : null; })()}
                         </td>
                       )}
                       {j === 0 && (
