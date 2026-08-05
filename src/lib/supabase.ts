@@ -531,18 +531,23 @@ export const db = {
       demoTrips = demoTrips.filter((x) => x.id !== id);
       return;
     }
-    const trip = (await this.getTrips()).find((t) => t.id === id);
-    // 1) ปล่อยออเดอร์ (ที่ยังไม่ส่ง) กลับไปรอจัดรถ ไม่งั้นจะค้างสถานะ waiting_ship แล้วหายจากกอง
-    if (trip?.order_ids.length) {
-      const { error } = await supabase.from('orders').update({ status: 'ready' }).in('id', trip.order_ids).eq('status', 'waiting_ship');
-      if (error) throw new Error(`ปล่อยออเดอร์กลับ: ${error.message}${error.code ? ` [${error.code}]` : ''}`);
-    }
-    // 2) ลบจุดส่งเองก่อน (ไม่พึ่ง cascade เผื่อ DB ตั้งค่ามาไม่มี ON DELETE CASCADE)
+    const orderIds = (await this.getTrips()).find((t) => t.id === id)?.order_ids ?? [];
+    // 1) ลบจุดส่งก่อน (ไม่พึ่ง cascade เผื่อ DB ไม่ได้ตั้ง ON DELETE CASCADE)
     const { error: eStops } = await supabase.from('trip_stops').delete().eq('trip_id', id);
     if (eStops) throw new Error(`ลบจุดส่ง (trip_stops): ${eStops.message}${eStops.code ? ` [${eStops.code}]` : ''}`);
-    // 3) ลบเที่ยว
+    // 2) ลบเที่ยว — นี่คือเป้าหมายหลัก
     const { error } = await supabase.from('trips').delete().eq('id', id);
     if (error) throw new Error(`ลบเที่ยว (trips): ${error.message}${error.code ? ` [${error.code}]` : ''}`);
+    // 3) ปล่อยออเดอร์ (ที่ยังไม่ส่ง) กลับไปรอจัดรถ — best-effort เท่านั้น
+    //    เที่ยวถูกลบไปแล้ว ถ้าขั้นนี้พลาดก็ไม่ควรทำให้การลบล้มเหลว
+    //    (กองรอจัดรวมสถานะ waiting_ship ที่ไม่มีเที่ยวไว้แล้ว จึงไม่หายแม้ที่นี่พลาด)
+    if (orderIds.length) {
+      try {
+        await supabase.from('orders').update({ status: 'ready' }).in('id', orderIds).eq('status', 'waiting_ship');
+      } catch (e) {
+        console.warn('deleteTrip: คืนสถานะออเดอร์ไม่สำเร็จ (เที่ยวลบแล้ว)', e);
+      }
+    }
   },
 
   async updateTripStatus(id: number, status: TripStatus): Promise<void> {

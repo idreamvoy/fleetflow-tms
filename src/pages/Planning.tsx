@@ -24,7 +24,8 @@ import { ORS_ENABLED, ensureGeocoded, ensureRoute, onGeoUpdate, cachedCoords } f
 
 const WAREHOUSE_ORIGIN = `${WAREHOUSE.lat},${WAREHOUSE.lng}`; // คลังเนเจอร์ทัช
 
-const WAITING_STATUSES: OrderStatus[] = ['ready', 'cod_waiting', 'cod_transferred', 'oem'];
+// รวม waiting_ship ด้วย: ออเดอร์ที่เคยจัดเข้าเที่ยวแต่เที่ยวถูกลบ จะได้ไม่หายจากกอง
+const WAITING_STATUSES: OrderStatus[] = ['ready', 'waiting_ship', 'cod_waiting', 'cod_transferred', 'oem'];
 
 // มาตรวัดความจุแบบวงกลม
 function CapGauge({ pct, color }: { pct: number; color: string }) {

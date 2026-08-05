@@ -224,7 +224,7 @@ export default function App() {
 
   // ตัวเลข badge/สถานะจริง (แทนค่าคงที่)
   const assignedTripIds = new Set(trips.flatMap((t) => t.order_ids));
-  const WAITING = ['ready', 'cod_waiting', 'cod_transferred', 'oem'];
+  const WAITING = ['ready', 'waiting_ship', 'cod_waiting', 'cod_transferred', 'oem'];
   const planningBadge = orders.filter((o) => !assignedTripIds.has(o.id) && WAITING.includes(o.status)).length;
   const ordersBadge = orders.filter((o) => o.status === 'unspecified' || o.status === 'failed').length;
   const runningTrips = trips.filter((t) => t.status === 'in_progress').length;
