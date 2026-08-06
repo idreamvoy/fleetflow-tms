@@ -1,13 +1,14 @@
 import { useState } from 'react';
-import type { NewOrder, NewOrderItem, Order, Zone, OrderStatus, ShippingMethod } from '../lib/types';
+import type { NewOrder, NewOrderItem, Order, Zone, OrderStatus, ShippingMethod, ItemReadiness } from '../lib/types';
+import { READINESS_LABEL, READINESS_ORDER } from '../lib/types';
 import { STATUS_LABEL } from './badges';
 import { IconPlus } from './icons';
 
 const STATUS_OPTS: OrderStatus[] = ['unspecified', 'ready', 'waiting_ship', 'delivered', 'failed', 'cod_waiting', 'cod_transferred', 'oem'];
 
-type ItemRow = { collection: string; product_name: string; qty: number; pieces_per_box: number; note: string; ready: boolean };
-// รายการใหม่ = ยังไม่พร้อม (ผลิต) เสมอ — คลังมายืนยัน "พร้อม" เองทีหลัง ไม่เดาให้
-const blankItem = (): ItemRow => ({ collection: '', product_name: '', qty: 24, pieces_per_box: 6, note: '', ready: false });
+type ItemRow = { collection: string; product_name: string; qty: number; pieces_per_box: number; note: string; readiness: ItemReadiness };
+// รายการใหม่ = ตรวจสอบเสมอ — คลังมายืนยันเองทีหลังว่า "รอผลิต" หรือ "พร้อมส่ง" ไม่เดาให้
+const blankItem = (): ItemRow => ({ collection: '', product_name: '', qty: 24, pieces_per_box: 6, note: '', readiness: 'checking' });
 
 export default function OrderModal({
   zones,
@@ -36,8 +37,8 @@ export default function OrderModal({
   });
   const [items, setItems] = useState<ItemRow[]>(
     order && order.items.length
-      // แก้ไขออเดอร์เดิม: คงสถานะความพร้อมของแต่ละรายการไว้ (ไม่รีเซ็ตเป็นยังไม่พร้อม)
-      ? order.items.map((it) => ({ collection: it.collection, product_name: it.product_name, qty: it.qty, pieces_per_box: it.pieces_per_box, note: it.note ?? '', ready: it.ready !== false }))
+      // แก้ไขออเดอร์เดิม: คงสถานะความพร้อมของแต่ละรายการไว้ (ไม่รีเซ็ตเป็นตรวจสอบ)
+      ? order.items.map((it) => ({ collection: it.collection, product_name: it.product_name, qty: it.qty, pieces_per_box: it.pieces_per_box, note: it.note ?? '', readiness: it.readiness ?? 'checking' }))
       : [blankItem()]
   );
   const set = (k: keyof typeof f, v: any) => setF((s) => ({ ...s, [k]: v }));
@@ -61,7 +62,7 @@ export default function OrderModal({
         qty: Number(r.qty),
         pieces_per_box: Number(r.pieces_per_box),
         note: r.note,
-        ready: r.ready,
+        readiness: r.readiness,
       }));
       const order: NewOrder = {
         order_no: f.order_no,
@@ -174,13 +175,13 @@ export default function OrderModal({
                   </div>
                   <div className="field">
                     <label>ความพร้อม</label>
-                    <button
-                      type="button"
-                      className={`ready-toggle ${r.ready ? 'ready' : 'making'}`}
-                      onClick={() => setItem(i, 'ready', !r.ready)}
+                    <select
+                      className={`readiness-select ${r.readiness}`}
+                      value={r.readiness}
+                      onChange={(e) => setItem(i, 'readiness', e.target.value as ItemReadiness)}
                     >
-                      {r.ready ? '🟢 พร้อม' : '🟡 กำลังผลิต'}
-                    </button>
+                      {READINESS_ORDER.map((s) => <option key={s} value={s}>{READINESS_LABEL[s]}</option>)}
+                    </select>
                   </div>
                 </div>
                 <button type="button" className="item-remove" onClick={() => removeItem(i)} disabled={items.length === 1} title="ลบรายการ">×</button>

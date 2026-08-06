@@ -1,16 +1,16 @@
-import type { Order } from '../lib/types';
-import { isItemReady, orderReadiness } from '../lib/types';
+import type { Order, ItemReadiness } from '../lib/types';
+import { orderReadiness, readinessOf, READINESS_LABEL, READINESS_ORDER } from '../lib/types';
 import { StatusBadge } from './badges';
 import { IconBox, IconPin, IconMoney, IconTruck } from './icons';
 
 export default function OrderDetail({
   order,
   onClose,
-  onToggleItemReady,
+  onSetItemReadiness,
 }: {
   order: Order | null;
   onClose: () => void;
-  onToggleItemReady?: (orderId: number, itemId: number, ready: boolean) => void;
+  onSetItemReadiness?: (orderId: number, itemId: number, readiness: ItemReadiness) => void;
 }) {
   if (!order) return null;
   const totalQty = order.items.reduce((s, it) => s + it.qty, 0);
@@ -52,13 +52,13 @@ export default function OrderDetail({
 
           <div className="detail-section-title">
             รายการสินค้า ({order.items.length})
-            {onToggleItemReady && <span className="sub" style={{ fontWeight: 400 }}> · แตะป้ายเพื่อสลับพร้อม/กำลังผลิต</span>}
+            {onSetItemReadiness && <span className="sub" style={{ fontWeight: 400 }}> · เปลี่ยนสถานะความพร้อมได้ที่นี่</span>}
           </div>
           <div className="detail-items">
             {order.items.map((it) => {
-              const ready = isItemReady(it);
+              const rs = readinessOf(it);
               return (
-                <div className={`detail-item-row${ready ? '' : ' item-making'}`} key={it.id}>
+                <div className={`detail-item-row${rs === 'ready' ? '' : ' item-making'}`} key={it.id}>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div className="col-tag">{it.collection}</div>
                     <div style={{ fontWeight: 600 }}>{it.product_name}</div>
@@ -69,18 +69,16 @@ export default function OrderDetail({
                       <div style={{ fontWeight: 700 }}>{it.boxes} กล่อง</div>
                       <div className="sub">{it.qty.toLocaleString()} ชิ้น · {it.pieces_per_box}/กล่อง</div>
                     </div>
-                    {onToggleItemReady ? (
-                      <button
-                        className={`ready-toggle ${ready ? 'ready' : 'making'}`}
-                        title="แตะเพื่อสลับสถานะความพร้อม"
-                        onClick={() => onToggleItemReady(order.id, it.id, !ready)}
+                    {onSetItemReadiness ? (
+                      <select
+                        className={`readiness-select ${rs}`}
+                        value={rs}
+                        onChange={(e) => onSetItemReadiness(order.id, it.id, e.target.value as ItemReadiness)}
                       >
-                        {ready ? '🟢 พร้อม' : '🟡 กำลังผลิต'}
-                      </button>
+                        {READINESS_ORDER.map((s) => <option key={s} value={s}>{READINESS_LABEL[s]}</option>)}
+                      </select>
                     ) : (
-                      <span className={`ready-toggle ${ready ? 'ready' : 'making'}`} style={{ pointerEvents: 'none' }}>
-                        {ready ? '🟢 พร้อม' : '🟡 กำลังผลิต'}
-                      </span>
+                      <span className={`readiness-select ${rs}`} style={{ pointerEvents: 'none' }}>{READINESS_LABEL[rs]}</span>
                     )}
                   </div>
                 </div>

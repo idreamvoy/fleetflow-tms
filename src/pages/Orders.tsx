@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
-import type { Order, OrderStatus, ShippingMethod } from '../lib/types';
-import { isItemReady, orderReadiness } from '../lib/types';
+import type { Order, OrderStatus, ShippingMethod, ItemReadiness } from '../lib/types';
+import { readinessOf, orderReadiness, READINESS_LABEL, READINESS_ORDER } from '../lib/types';
 import { STATUS_LABEL, STATUS_COLOR } from '../components/badges';
 import { slaOf, SLA_COLOR } from '../lib/sla';
 import { IconPlus, IconDownload, IconUpload } from '../components/icons';
@@ -39,7 +39,7 @@ export default function Orders({
   onEdit,
   onStatusChange,
   onDelete,
-  onToggleItemReady,
+  onSetItemReadiness,
 }: {
   orders: Order[];
   onAdd: () => void;
@@ -47,7 +47,7 @@ export default function Orders({
   onEdit: (order: Order) => void;
   onStatusChange: (id: number, status: OrderStatus) => void;
   onDelete: (id: number) => void;
-  onToggleItemReady: (orderId: number, itemId: number, ready: boolean) => void;
+  onSetItemReadiness: (orderId: number, itemId: number, readiness: ItemReadiness) => void;
 }) {
   const [tab, setTab] = useState<ShippingMethod>('company');
   const [statusFilter, setStatusFilter] = useState<OrderStatus | 'all'>('all');
@@ -165,13 +165,13 @@ export default function Orders({
                         <div className="col-tag">{it.collection}</div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                           <span>{it.product_name}</span>
-                          <button
-                            className={`ready-toggle sm ${isItemReady(it) ? 'ready' : 'making'}`}
-                            title="แตะเพื่อสลับ พร้อม / กำลังผลิต"
-                            onClick={() => onToggleItemReady(o.id, it.id, !isItemReady(it))}
+                          <select
+                            className={`readiness-select sm ${readinessOf(it)}`}
+                            value={readinessOf(it)}
+                            onChange={(e) => onSetItemReadiness(o.id, it.id, e.target.value as ItemReadiness)}
                           >
-                            {isItemReady(it) ? '🟢 พร้อม' : '🟡 ผลิต'}
-                          </button>
+                            {READINESS_ORDER.map((s) => <option key={s} value={s}>{READINESS_LABEL[s]}</option>)}
+                          </select>
                         </div>
                         {it.note ? <div className="sub" style={{ color: '#f59e0b' }}>* {it.note}</div> : null}
                       </td>

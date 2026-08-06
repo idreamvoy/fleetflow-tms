@@ -24,6 +24,7 @@ import type {
   DriverPerformance,
   NewDriver,
   NewZone,
+  ItemReadiness,
 } from './types';
 
 const URL = import.meta.env.VITE_SUPABASE_URL as string | undefined;
@@ -327,7 +328,7 @@ export const db = {
       pieces_per_box: it.pieces_per_box,
       boxes: boxesFor(it.qty, it.pieces_per_box),
       note: it.note ?? '',
-      ready: it.ready ?? false, // ไม่ระบุ = ยังไม่พร้อม (ไม่เดาให้พร้อมส่ง)
+      readiness: it.readiness ?? 'checking', // ไม่ระบุ = ตรวจสอบ (ไม่เดาให้พร้อมส่ง)
     }));
     const box_count = items.reduce((s, it) => s + it.boxes, 0);
     if (!supabase) {
@@ -366,7 +367,7 @@ export const db = {
       await supabase.from('order_items').insert(
         items.map((it) => ({
           order_id: (order as any).id, collection: it.collection, product_name: it.product_name,
-          qty: it.qty, pieces_per_box: it.pieces_per_box, boxes: it.boxes, note: it.note, ready: it.ready,
+          qty: it.qty, pieces_per_box: it.pieces_per_box, boxes: it.boxes, note: it.note, readiness: it.readiness,
         }))
       );
     }
@@ -374,8 +375,8 @@ export const db = {
   },
 
   async updateOrder(id: number, input: NewOrder): Promise<void> {
-    // ⚠️ ลบ+สร้างรายการใหม่ทั้งหมดด้านล่าง — ต้องส่ง ready ของแต่ละรายการมาด้วยเสมอ
-    // (OrderModal ส่ง ready ของรายการเดิมกลับมาแล้ว) ไม่งั้นการแก้ไขออเดอร์จะล้างสถานะพร้อมทิ้งทุกครั้ง
+    // ⚠️ ลบ+สร้างรายการใหม่ทั้งหมดด้านล่าง — ต้องส่ง readiness ของแต่ละรายการมาด้วยเสมอ
+    // (OrderModal ส่ง readiness ของรายการเดิมกลับมาแล้ว) ไม่งั้นการแก้ไขออเดอร์จะล้างสถานะทิ้งทุกครั้ง
     const items: OrderItem[] = input.items.map((it, j) => ({
       id: Date.now() + j,
       collection: it.collection,
@@ -384,7 +385,7 @@ export const db = {
       pieces_per_box: it.pieces_per_box,
       boxes: boxesFor(it.qty, it.pieces_per_box),
       note: it.note ?? '',
-      ready: it.ready ?? false,
+      readiness: it.readiness ?? 'checking',
     }));
     const box_count = items.reduce((s, it) => s + it.boxes, 0);
     if (!supabase) {
@@ -427,7 +428,7 @@ export const db = {
       await supabase.from('order_items').insert(
         items.map((it) => ({
           order_id: id, collection: it.collection, product_name: it.product_name,
-          qty: it.qty, pieces_per_box: it.pieces_per_box, boxes: it.boxes, note: it.note, ready: it.ready,
+          qty: it.qty, pieces_per_box: it.pieces_per_box, boxes: it.boxes, note: it.note, readiness: it.readiness,
         }))
       );
     }
@@ -444,15 +445,15 @@ export const db = {
   },
 
   // ความพร้อมรายรายการสินค้า (ก่อนส่ง) — เขียนเฉพาะที่นี่ ไม่ยุ่งกับ add/updateOrder
-  async updateItemReady(itemId: number, ready: boolean): Promise<void> {
+  async updateItemReadiness(itemId: number, readiness: ItemReadiness): Promise<void> {
     if (!supabase) {
       demoOrders = demoOrders.map((o) => ({
         ...o,
-        items: o.items.map((it) => (it.id === itemId ? { ...it, ready } : it)),
+        items: o.items.map((it) => (it.id === itemId ? { ...it, readiness } : it)),
       }));
       return;
     }
-    const { error } = await supabase.from('order_items').update({ ready }).eq('id', itemId);
+    const { error } = await supabase.from('order_items').update({ readiness }).eq('id', itemId);
     if (error) throw error;
   },
 
@@ -479,13 +480,13 @@ export const db = {
     if (!supabase) {
       demoOrders = demoOrders.map((o) => {
         if (o.id !== orderId) return o;
-        const newItem: OrderItem = { id: Date.now(), ...item, boxes, note: '', ready: false };
+        const newItem: OrderItem = { id: Date.now(), ...item, boxes, note: '', readiness: 'checking' };
         const items = [...o.items, newItem];
         return { ...o, items, box_count: items.reduce((s, it) => s + it.boxes, 0) };
       });
       return;
     }
-    const { error } = await supabase.from('order_items').insert({ order_id: orderId, ...item, boxes, ready: false });
+    const { error } = await supabase.from('order_items').insert({ order_id: orderId, ...item, boxes, readiness: 'checking' });
     if (error) throw error;
   },
 

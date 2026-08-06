@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useReducer, useState } from 'react';
-import type { Order, Trip, Driver, Zone, OrderStatus, TripStatus } from '../lib/types';
+import type { Order, Trip, Driver, Zone, OrderStatus, TripStatus, ItemReadiness } from '../lib/types';
 import { TRIP_STATUS_LABEL, orderReadiness } from '../lib/types';
 import { IconRoute, IconPin, IconTruck, IconBox, IconPlus } from '../components/icons';
 import OrderDetail from '../components/OrderDetail';
@@ -57,7 +57,7 @@ export default function Planning({
   onSetTripStatus,
   onDeleteTrip,
   onSetShipDate,
-  onToggleItemReady,
+  onSetItemReadiness,
 }: {
   orders: Order[];
   trips: Trip[];
@@ -71,7 +71,7 @@ export default function Planning({
   onSetTripStatus: (tripId: number, status: TripStatus) => Promise<void>;
   onDeleteTrip: (tripId: number) => Promise<void>;
   onSetShipDate: (orderId: number, ship_date: string | null) => Promise<void>;
-  onToggleItemReady: (orderId: number, itemId: number, ready: boolean) => Promise<void>;
+  onSetItemReadiness: (orderId: number, itemId: number, readiness: ItemReadiness) => Promise<void>;
 }) {
   const assignedIds = useMemo(() => new Set(trips.flatMap((t) => t.order_ids)), [trips]);
   const unassigned = orders.filter((o) => !assignedIds.has(o.id) && WAITING_STATUSES.includes(o.status));
@@ -611,7 +611,7 @@ export default function Planning({
       </>
       )}
 
-      <OrderDetail order={detail ? orders.find((o) => o.id === detail.id) ?? detail : null} onClose={() => setDetail(null)} onToggleItemReady={onToggleItemReady} />
+      <OrderDetail order={detail ? orders.find((o) => o.id === detail.id) ?? detail : null} onClose={() => setDetail(null)} onSetItemReadiness={onSetItemReadiness} />
 
       {mapTrip && <MapModal orders={orders} trip={mapTrip} onClose={() => setMapTrip(null)} />}
 

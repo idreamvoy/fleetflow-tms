@@ -70,12 +70,24 @@ export interface OrderItem {
   note: string; // หมายเหตุ
   delivered_qty?: number | null; // ส่งได้จริง (partial)
   item_status?: ItemDeliveryStatus | null; // สถานะการส่งรายรายการ (ตอนส่ง)
-  ready?: boolean | null; // ความพร้อมก่อนส่ง (false = กำลังผลิต · ว่าง/true = พร้อม)
+  readiness?: ItemReadiness | null; // ความพร้อมก่อนส่ง — ค่าว่าง/undefined = ตรวจสอบ
 }
 
-// ความพร้อมก่อนส่ง — ค่าว่าง/undefined ถือว่าพร้อม (ของเดิมทั้งหมด = พร้อม)
-export const isItemReady = (it: { ready?: boolean | null }) => it.ready !== false;
-export function orderReadiness(items: Array<{ ready?: boolean | null }>) {
+// ความพร้อมก่อนส่งของรายการสินค้า (ก่อนขึ้นรถ ไม่ใช่ตอนส่ง)
+//  ตรวจสอบ = เพิ่งคีย์เข้ามา ยังไม่ยืนยัน (ค่าเริ่มต้นเสมอ)
+//  รอผลิต  = ตรวจแล้วว่ายังไม่มีของ ต้องผลิต/สั่งเพิ่ม
+//  พร้อมส่ง = ตรวจแล้วว่ามีของ ขึ้นรถได้
+export type ItemReadiness = 'checking' | 'pending' | 'ready';
+export const READINESS_LABEL: Record<ItemReadiness, string> = {
+  checking: 'ตรวจสอบ',
+  pending: 'รอผลิต',
+  ready: 'พร้อมส่ง',
+};
+export const READINESS_ORDER: ItemReadiness[] = ['checking', 'pending', 'ready'];
+
+export const readinessOf = (it: { readiness?: ItemReadiness | null }): ItemReadiness => it.readiness ?? 'checking';
+export const isItemReady = (it: { readiness?: ItemReadiness | null }) => readinessOf(it) === 'ready';
+export function orderReadiness(items: Array<{ readiness?: ItemReadiness | null }>) {
   const total = items.length;
   const ready = items.filter(isItemReady).length;
   return { ready, total, allReady: total > 0 && ready === total, someReady: ready > 0 && ready < total, noneReady: total > 0 && ready === 0 };
@@ -105,7 +117,7 @@ export interface NewOrderItem {
   qty: number;
   pieces_per_box: number;
   note?: string;
-  ready?: boolean; // ความพร้อมก่อนส่ง — ไม่ระบุ = ยังไม่พร้อม (คลังต้องมายืนยันเอง)
+  readiness?: ItemReadiness; // ความพร้อมก่อนส่ง — ไม่ระบุ = ตรวจสอบ (ค่าเริ่มต้นเสมอ)
 }
 
 export interface NewOrder {
