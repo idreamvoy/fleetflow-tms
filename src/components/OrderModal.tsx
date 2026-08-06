@@ -5,8 +5,9 @@ import { IconPlus } from './icons';
 
 const STATUS_OPTS: OrderStatus[] = ['unspecified', 'ready', 'waiting_ship', 'delivered', 'failed', 'cod_waiting', 'cod_transferred', 'oem'];
 
-type ItemRow = { collection: string; product_name: string; qty: number; pieces_per_box: number; note: string };
-const blankItem = (): ItemRow => ({ collection: '', product_name: '', qty: 24, pieces_per_box: 6, note: '' });
+type ItemRow = { collection: string; product_name: string; qty: number; pieces_per_box: number; note: string; ready: boolean };
+// รายการใหม่ = ยังไม่พร้อม (ผลิต) เสมอ — คลังมายืนยัน "พร้อม" เองทีหลัง ไม่เดาให้
+const blankItem = (): ItemRow => ({ collection: '', product_name: '', qty: 24, pieces_per_box: 6, note: '', ready: false });
 
 export default function OrderModal({
   zones,
@@ -35,7 +36,8 @@ export default function OrderModal({
   });
   const [items, setItems] = useState<ItemRow[]>(
     order && order.items.length
-      ? order.items.map((it) => ({ collection: it.collection, product_name: it.product_name, qty: it.qty, pieces_per_box: it.pieces_per_box, note: it.note ?? '' }))
+      // แก้ไขออเดอร์เดิม: คงสถานะความพร้อมของแต่ละรายการไว้ (ไม่รีเซ็ตเป็นยังไม่พร้อม)
+      ? order.items.map((it) => ({ collection: it.collection, product_name: it.product_name, qty: it.qty, pieces_per_box: it.pieces_per_box, note: it.note ?? '', ready: it.ready !== false }))
       : [blankItem()]
   );
   const set = (k: keyof typeof f, v: any) => setF((s) => ({ ...s, [k]: v }));
@@ -59,6 +61,7 @@ export default function OrderModal({
         qty: Number(r.qty),
         pieces_per_box: Number(r.pieces_per_box),
         note: r.note,
+        ready: r.ready,
       }));
       const order: NewOrder = {
         order_no: f.order_no,
@@ -168,6 +171,16 @@ export default function OrderModal({
                   <div className="field">
                     <label>หมายเหตุ</label>
                     <input value={r.note} onChange={(e) => setItem(i, 'note', e.target.value)} placeholder="เช่น ด่วน" />
+                  </div>
+                  <div className="field">
+                    <label>ความพร้อม</label>
+                    <button
+                      type="button"
+                      className={`ready-toggle ${r.ready ? 'ready' : 'making'}`}
+                      onClick={() => setItem(i, 'ready', !r.ready)}
+                    >
+                      {r.ready ? '🟢 พร้อม' : '🟡 กำลังผลิต'}
+                    </button>
                   </div>
                 </div>
                 <button type="button" className="item-remove" onClick={() => removeItem(i)} disabled={items.length === 1} title="ลบรายการ">×</button>

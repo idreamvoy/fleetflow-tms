@@ -105,6 +105,7 @@ export interface NewOrderItem {
   qty: number;
   pieces_per_box: number;
   note?: string;
+  ready?: boolean; // ความพร้อมก่อนส่ง — ไม่ระบุ = ยังไม่พร้อม (คลังต้องมายืนยันเอง)
 }
 
 export interface NewOrder {

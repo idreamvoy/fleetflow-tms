@@ -327,6 +327,7 @@ export const db = {
       pieces_per_box: it.pieces_per_box,
       boxes: boxesFor(it.qty, it.pieces_per_box),
       note: it.note ?? '',
+      ready: it.ready ?? false, // ไม่ระบุ = ยังไม่พร้อม (ไม่เดาให้พร้อมส่ง)
     }));
     const box_count = items.reduce((s, it) => s + it.boxes, 0);
     if (!supabase) {
@@ -365,7 +366,7 @@ export const db = {
       await supabase.from('order_items').insert(
         items.map((it) => ({
           order_id: (order as any).id, collection: it.collection, product_name: it.product_name,
-          qty: it.qty, pieces_per_box: it.pieces_per_box, boxes: it.boxes, note: it.note,
+          qty: it.qty, pieces_per_box: it.pieces_per_box, boxes: it.boxes, note: it.note, ready: it.ready,
         }))
       );
     }
@@ -373,6 +374,8 @@ export const db = {
   },
 
   async updateOrder(id: number, input: NewOrder): Promise<void> {
+    // ⚠️ ลบ+สร้างรายการใหม่ทั้งหมดด้านล่าง — ต้องส่ง ready ของแต่ละรายการมาด้วยเสมอ
+    // (OrderModal ส่ง ready ของรายการเดิมกลับมาแล้ว) ไม่งั้นการแก้ไขออเดอร์จะล้างสถานะพร้อมทิ้งทุกครั้ง
     const items: OrderItem[] = input.items.map((it, j) => ({
       id: Date.now() + j,
       collection: it.collection,
@@ -381,6 +384,7 @@ export const db = {
       pieces_per_box: it.pieces_per_box,
       boxes: boxesFor(it.qty, it.pieces_per_box),
       note: it.note ?? '',
+      ready: it.ready ?? false,
     }));
     const box_count = items.reduce((s, it) => s + it.boxes, 0);
     if (!supabase) {
@@ -423,7 +427,7 @@ export const db = {
       await supabase.from('order_items').insert(
         items.map((it) => ({
           order_id: id, collection: it.collection, product_name: it.product_name,
-          qty: it.qty, pieces_per_box: it.pieces_per_box, boxes: it.boxes, note: it.note,
+          qty: it.qty, pieces_per_box: it.pieces_per_box, boxes: it.boxes, note: it.note, ready: it.ready,
         }))
       );
     }
@@ -475,13 +479,13 @@ export const db = {
     if (!supabase) {
       demoOrders = demoOrders.map((o) => {
         if (o.id !== orderId) return o;
-        const newItem: OrderItem = { id: Date.now(), ...item, boxes, note: '' };
+        const newItem: OrderItem = { id: Date.now(), ...item, boxes, note: '', ready: false };
         const items = [...o.items, newItem];
         return { ...o, items, box_count: items.reduce((s, it) => s + it.boxes, 0) };
       });
       return;
     }
-    const { error } = await supabase.from('order_items').insert({ order_id: orderId, ...item, boxes });
+    const { error } = await supabase.from('order_items').insert({ order_id: orderId, ...item, boxes, ready: false });
     if (error) throw error;
   },
 
