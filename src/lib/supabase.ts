@@ -26,6 +26,7 @@ import type {
   NewZone,
   ItemReadiness,
 } from './types';
+import { nextBackorderNo } from './types';
 
 const URL = import.meta.env.VITE_SUPABASE_URL as string | undefined;
 const KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
@@ -455,6 +456,70 @@ export const db = {
     }
     const { error } = await supabase.from('order_items').update({ readiness }).eq('id', itemId);
     if (error) throw error;
+  },
+
+  // แยกส่งเฉพาะรายการที่พร้อม — ออเดอร์เดิมเหลือแต่รายการพร้อม (สถานะ "พร้อมส่ง" ไปวางแผนได้เลย)
+  // รายการที่ยัง "ตรวจสอบ/รอผลิต" ถูกย้ายไปออเดอร์ใหม่ เลขที่ ...-R2 สถานะ "ค้างส่ง" (COD=0, ยังไม่กำหนดวันส่ง)
+  // รอผลิตเสร็จ ค่อยไปกำหนดวันส่งใหม่ที่หน้าวางแผนจัดส่งอีกที
+  async splitOrderShipReady(orderId: number): Promise<void> {
+    if (!supabase) {
+      const order = demoOrders.find((o) => o.id === orderId);
+      if (!order) return;
+      const readyItems = order.items.filter((it) => (it.readiness ?? 'checking') === 'ready');
+      const notReadyItems = order.items.filter((it) => (it.readiness ?? 'checking') !== 'ready');
+      if (!readyItems.length || !notReadyItems.length) return; // ไม่มีอะไรให้แยก
+      const backorder: Order = {
+        ...order,
+        id: Math.max(0, ...demoOrders.map((o) => o.id)) + 1,
+        order_no: nextBackorderNo(order.order_no),
+        status: 'failed',
+        cod_amount: 0,
+        ship_date: null,
+        items: notReadyItems,
+        box_count: notReadyItems.reduce((s, it) => s + it.boxes, 0),
+        created_at: new Date().toISOString(),
+      };
+      demoOrders = demoOrders.map((o) =>
+        o.id === orderId
+          ? { ...o, status: 'ready' as OrderStatus, items: readyItems, box_count: readyItems.reduce((s, it) => s + it.boxes, 0) }
+          : o
+      );
+      demoOrders = [backorder, ...demoOrders];
+      return;
+    }
+
+    const { data: orderRow, error: eOrder } = await supabase.from('orders').select('*').eq('id', orderId).single();
+    if (eOrder) throw eOrder;
+    const { data: itemRows, error: eItems } = await supabase.from('order_items').select('id, readiness').eq('order_id', orderId);
+    if (eItems) throw eItems;
+    const notReadyIds = (itemRows ?? []).filter((it: any) => (it.readiness ?? 'checking') !== 'ready').map((it: any) => it.id);
+    const readyCount = (itemRows ?? []).length - notReadyIds.length;
+    if (!notReadyIds.length || !readyCount) return; // ไม่มีอะไรให้แยก (พร้อมหมด/ไม่พร้อมเลย)
+
+    // 1) สร้างออเดอร์ค้างส่งใหม่ — คัดลอกข้อมูลลูกค้า/ที่อยู่ ไม่เอา COD/วันส่งเดิมมา
+    const { data: newOrder, error: eNew } = await supabase
+      .from('orders')
+      .insert({
+        order_no: nextBackorderNo((orderRow as any).order_no),
+        customer_type: (orderRow as any).customer_type,
+        customer_name: (orderRow as any).customer_name,
+        delivery_location: (orderRow as any).delivery_location,
+        shipping_method: (orderRow as any).shipping_method,
+        zone_id: (orderRow as any).zone_id,
+        status: 'failed',
+        cod_amount: 0,
+        ship_date: null,
+      })
+      .select().single();
+    if (eNew) throw eNew;
+
+    // 2) ย้ายรายการที่ยังไม่พร้อมไปอยู่ในออเดอร์ใหม่ (แค่เปลี่ยน order_id เจ้าของ ไม่ต้องสร้างแถวใหม่)
+    const { error: eMove } = await supabase.from('order_items').update({ order_id: (newOrder as any).id }).in('id', notReadyIds);
+    if (eMove) throw eMove;
+
+    // 3) ออเดอร์เดิมเหลือแต่รายการที่พร้อม -> ตั้งสถานะพร้อมส่งให้เลย
+    const { error: eStatus } = await supabase.from('orders').update({ status: 'ready' }).eq('id', orderId);
+    if (eStatus) throw eStatus;
   },
 
   async updateOrderStatus(id: number, status: OrderStatus): Promise<void> {

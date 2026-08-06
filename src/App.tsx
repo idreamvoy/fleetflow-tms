@@ -121,6 +121,12 @@ export default function App() {
     flash(bump ? 'ครบทุกรายการ · เปลี่ยนเป็นพร้อมส่งแล้ว ✓' : `ตั้งเป็น "${READINESS_LABEL[readiness]}" แล้ว ✓`);
   }
 
+  async function handleSplitOrder(orderId: number) {
+    await db.splitOrderShipReady(orderId);
+    await loadAll();
+    flash('แยกออเดอร์แล้ว · ส่วนที่พร้อมไปวางแผนจัดส่งได้เลย ส่วนที่เหลือเป็นค้างส่งรอผลิต ✓');
+  }
+
   async function handleStatusChange(id: number, status: OrderStatus) {
     await db.updateOrderStatus(id, status);
     setOrders((prev) => prev.map((x) => (x.id === id ? { ...x, status } : x)));
@@ -282,7 +288,7 @@ export default function App() {
           ) : page === 'dashboard' ? (
             <Dashboard orders={orders} zones={zones} />
           ) : page === 'orders' ? (
-            <Orders orders={filteredOrders} onAdd={openAdd} onImport={() => setShowImport(true)} onEdit={openEdit} onStatusChange={handleStatusChange} onDelete={handleDelete} onSetItemReadiness={handleSetItemReadiness} />
+            <Orders orders={filteredOrders} onAdd={openAdd} onImport={() => setShowImport(true)} onEdit={openEdit} onStatusChange={handleStatusChange} onDelete={handleDelete} onSetItemReadiness={handleSetItemReadiness} onSplitOrder={handleSplitOrder} />
           ) : page === 'planning' ? (
             <Planning orders={orders} trips={trips} drivers={drivers} zones={zones} onAssign={handleAssign} onUnassign={handleUnassign} onReorder={handleReorder} onSetTripDriver={handleSetTripDriver} onCreateTrip={handleCreateTrip} onSetTripStatus={handleSetTripStatus} onDeleteTrip={handleDeleteTrip} onSetShipDate={handleSetShipDate} onSetItemReadiness={handleSetItemReadiness} />
           ) : page === 'tracking' ? (

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import type { Order, OrderStatus, ShippingMethod, ItemReadiness } from '../lib/types';
-import { readinessOf, orderReadiness, READINESS_LABEL, READINESS_ORDER } from '../lib/types';
+import { readinessOf, orderReadiness, READINESS_LABEL, READINESS_ORDER, nextBackorderNo } from '../lib/types';
 import { STATUS_LABEL, STATUS_COLOR } from '../components/badges';
 import { slaOf, SLA_COLOR } from '../lib/sla';
 import { IconPlus, IconDownload, IconUpload } from '../components/icons';
@@ -40,6 +40,7 @@ export default function Orders({
   onStatusChange,
   onDelete,
   onSetItemReadiness,
+  onSplitOrder,
 }: {
   orders: Order[];
   onAdd: () => void;
@@ -48,6 +49,7 @@ export default function Orders({
   onStatusChange: (id: number, status: OrderStatus) => void;
   onDelete: (id: number) => void;
   onSetItemReadiness: (orderId: number, itemId: number, readiness: ItemReadiness) => void;
+  onSplitOrder: (orderId: number) => void;
 }) {
   const [tab, setTab] = useState<ShippingMethod>('company');
   const [statusFilter, setStatusFilter] = useState<OrderStatus | 'all'>('all');
@@ -184,9 +186,34 @@ export default function Orders({
                               <option key={s} value={s}>{s === 'oem' ? 'OEM' : STATUS_LABEL[s]}</option>
                             ))}
                           </select>
-                          {(() => { const rd = orderReadiness(o.items); return !rd.allReady ? (
-                            <div className={`ready-badge ${rd.noneReady ? 'none' : 'some'}`} style={{ marginTop: 4 }}>พร้อม {rd.ready}/{rd.total}</div>
-                          ) : null; })()}
+                          {(() => {
+                            const rd = orderReadiness(o.items);
+                            if (rd.allReady) return null;
+                            return (
+                              <>
+                                <div className={`ready-badge ${rd.noneReady ? 'none' : 'some'}`} style={{ marginTop: 4 }}>พร้อม {rd.ready}/{rd.total}</div>
+                                {rd.someReady && (
+                                  <button
+                                    className="mini-btn split"
+                                    style={{ marginTop: 4, display: 'block', width: '100%' }}
+                                    title="แยกส่งเฉพาะรายการที่พร้อม ส่วนที่เหลือแยกเป็นออเดอร์ค้างส่งรอผลิต"
+                                    onClick={() => {
+                                      const backNo = nextBackorderNo(o.order_no);
+                                      const ok = confirm(
+                                        `แยกส่งออเดอร์ ${o.order_no}?\n\n` +
+                                        `✅ ส่งได้ตอนนี้ (${rd.ready} รายการ) — ไปวางแผนจัดส่งได้เลย\n` +
+                                        `⏳ รอผลิต (${rd.total - rd.ready} รายการ) — แยกเป็นออเดอร์ค้างส่งใหม่ "${backNo}" ยังไม่กำหนดวันส่ง\n\n` +
+                                        `ยอด COD เดิม (฿${o.cod_amount.toLocaleString()}) จะอยู่กับออเดอร์ที่ส่งตอนนี้ทั้งหมด — ออเดอร์ค้างส่ง COD = 0`
+                                      );
+                                      if (ok) onSplitOrder(o.id);
+                                    }}
+                                  >
+                                    ✂️ แยกส่งเฉพาะที่พร้อม
+                                  </button>
+                                )}
+                              </>
+                            );
+                          })()}
                         </td>
                       )}
                       {j === 0 && (

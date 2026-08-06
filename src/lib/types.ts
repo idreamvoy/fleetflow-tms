@@ -93,6 +93,12 @@ export function orderReadiness(items: Array<{ readiness?: ItemReadiness | null }
   return { ready, total, allReady: total > 0 && ready === total, someReady: ready > 0 && ready < total, noneReady: total > 0 && ready === 0 };
 }
 
+// เลขที่ใบสั่งงานของ "ออเดอร์ค้างส่ง" ที่แยกออกมา — SO-xxx -> SO-xxx-R2 -> SO-xxx-R3 ...
+export function nextBackorderNo(orderNo: string): string {
+  const m = orderNo.match(/^(.*)-R(\d+)$/);
+  return m ? `${m[1]}-R${Number(m[2]) + 1}` : `${orderNo}-R2`;
+}
+
 // ใบสั่งขาย (sales order)
 export interface Order {
   id: number;
