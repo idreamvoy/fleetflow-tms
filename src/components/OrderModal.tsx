@@ -28,7 +28,7 @@ export default function OrderModal({
     delivery_location: order?.delivery_location ?? '',
     shipping_method: (order?.shipping_method ?? 'company') as ShippingMethod,
     zone_id: order?.zone_id ?? zones[0]?.id ?? 1,
-    status: (order?.status ?? 'ready') as OrderStatus,
+    status: (order?.status ?? 'unspecified') as OrderStatus, // คีย์ใหม่ = ยังไม่ระบุ (คลังค่อยยืนยันพร้อมส่ง)
     cod_amount: order?.cod_amount ?? 0,
     ship_date: order?.ship_date ?? '',
     order_date: order?.created_at ? order.created_at.slice(0, 10) : new Date().toLocaleDateString('sv-SE'),

@@ -231,7 +231,7 @@ function parseFleetflowRows(rows: Record<string, unknown>[], zones: Zone[]): Par
         delivery_location: s(row[COLS.delivery_location]),
         shipping_method: SHIPPING_MAP[shipRaw] ?? 'company',
         zone_id: matchZoneId(s(row[COLS.zone]), zones),
-        status: STATUS_MAP[statusRaw] ?? 'ready',
+        status: STATUS_MAP[statusRaw] ?? 'unspecified', // เว้นว่าง = ยังไม่ระบุ (ไม่เดาว่าพร้อมส่ง)
         cod_amount: num(row[COLS.cod_amount]),
         ship_date: normDate(row[COLS.ship_date]) || undefined,
         items: [item],
