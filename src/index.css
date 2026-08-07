@@ -37,7 +37,7 @@ body {
 }
 
 button { font-family: inherit; cursor: pointer; border: none; background: none; }
-input, select { font-family: inherit; }
+input, select, textarea { font-family: inherit; }
 code { font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 0.9em; }
 
 /* ---------- App layout ---------- */
@@ -108,6 +108,34 @@ code { font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 0.9em;
 .status-title { color: #fff; font-weight: 600; }
 .status-line { color: var(--text-3); margin-top: 6px; }
 
+.sidebar-collapse-btn {
+  display: flex; align-items: center; gap: 12px; width: 100%;
+  padding: 8px 12px; margin-bottom: 4px; border-radius: var(--radius-sm);
+  color: var(--text-3); font-size: 12px; font-weight: 600; text-align: left;
+}
+.sidebar-collapse-btn:hover { background: rgba(255, 255, 255, 0.06); color: #fff; }
+.sidebar-collapse-btn svg { flex-shrink: 0; transition: transform 0.2s; }
+
+/* ---------- Sidebar: ย่อ/ขยาย (ต้องอยู่หลัง .app/.sidebar เพื่อ override ความกว้าง) ---------- */
+/* หมายเหตุ: ห้ามใส่ transition ให้ grid-template-columns — เบราว์เซอร์จะค้างที่ค่าเดิม
+   ทำให้กดย่อ/ขยายแล้วความกว้างไม่เปลี่ยน (ตัวอักษรหาย แต่แถบยังกว้างเท่าเดิม) */
+.app.sidebar-collapsed { grid-template-columns: 76px 1fr; }
+.sidebar.collapsed { width: 76px; padding: 20px 12px; }
+/* ย่อแล้ว: ซ่อนข้อความ เหลือแต่ไอคอน */
+.sidebar.collapsed .nav-label,
+.sidebar.collapsed .brand-text { display: none; }
+.sidebar.collapsed .brand { justify-content: center; padding: 8px 0 20px; }
+.sidebar.collapsed .nav-item,
+.sidebar.collapsed .sidebar-collapse-btn { justify-content: center; padding-left: 0; padding-right: 0; gap: 0; }
+.sidebar.collapsed .sidebar-status { padding: 12px 8px; text-align: center; }
+.sidebar.collapsed .status-dot { margin-right: 0; }
+/* badge ย้ายมาเกาะมุมไอคอน */
+.sidebar.collapsed .nav-item { position: relative; }
+.sidebar.collapsed .nav-badge {
+  position: absolute; top: 4px; right: 10px; margin-left: 0;
+  min-width: 17px; height: 17px; font-size: 10px; padding: 0 4px;
+}
+
 /* ---------- Main ---------- */
 .main { overflow-y: auto; display: flex; flex-direction: column; }
 
@@ -158,6 +186,35 @@ code { font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 0.9em;
   background: linear-gradient(135deg, var(--indigo), var(--cyan));
   display: grid; place-items: center; color: #fff; font-weight: 700; font-size: 13px;
 }
+
+/* ---------- กระดิ่งแจ้งเตือน ---------- */
+.notif-wrap { position: relative; }
+.icon-btn.active { background: #eef2ff; border-color: #c7d2fe; color: var(--indigo); }
+.notif-panel {
+  position: absolute; top: calc(100% + 8px); right: 0; z-index: 60;
+  width: 340px; max-width: calc(100vw - 32px);
+  background: #fff; border: 1px solid var(--border); border-radius: 14px;
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.16); overflow: hidden;
+}
+.notif-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 14px; border-bottom: 1px solid var(--border); font-weight: 700; font-size: 14px;
+}
+.notif-empty { padding: 24px 14px; text-align: center; color: var(--text-2); font-size: 13px; }
+.notif-list { max-height: 380px; overflow-y: auto; }
+.notif-item {
+  display: flex; align-items: flex-start; gap: 10px; width: 100%; text-align: left;
+  padding: 11px 14px; border-bottom: 1px solid #f1f5f9; border-left: 3px solid transparent;
+}
+.notif-item:hover { background: #f8fafc; }
+.notif-item.danger { border-left-color: var(--rose); }
+.notif-item.warn { border-left-color: #f59e0b; }
+.notif-item.info { border-left-color: var(--indigo); }
+.notif-ico { font-size: 16px; line-height: 1.3; flex-shrink: 0; }
+.notif-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+.notif-title { font-size: 13px; font-weight: 600; color: var(--text); }
+.notif-detail { font-size: 12px; color: var(--text-2); overflow: hidden; text-overflow: ellipsis; }
+.notif-go { color: var(--text-3); font-size: 14px; align-self: center; }
 
 .content { padding: 24px 28px 40px; }
 
@@ -284,8 +341,14 @@ table.data tbody tr:last-child td { border-bottom: none; }
 .field { display: flex; flex-direction: column; gap: 6px; }
 .field.full { grid-column: 1 / -1; }
 .field label { font-size: 13px; font-weight: 600; color: var(--text-2); }
-.field input, .field select { padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; font-size: 14px; outline: none; background: #fff; }
-.field input:focus, .field select:focus { border-color: var(--indigo); }
+.field input, .field select, .field textarea { padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; font-size: 14px; outline: none; background: #fff; }
+.field input:focus, .field select:focus, .field textarea:focus { border-color: var(--indigo); }
+.order-note-textarea { width: 100%; resize: vertical; line-height: 1.5; }
+
+/* หมายเหตุถึงคลัง — แก้ inline ในตารางออเดอร์ */
+.order-note-input { width: 100%; margin-top: 5px; padding: 4px 7px; font-size: 12px; border: 1px dashed var(--border); border-radius: 7px; background: #fafafa; color: var(--text-2); }
+.order-note-input:focus { outline: none; border-style: solid; border-color: var(--indigo); background: #fff; color: var(--text); }
+.order-note-input:not(:placeholder-shown) { border-style: solid; background: #fff7ed; border-color: #fed7aa; color: #9a3412; }
 .close-x { width: 32px; height: 32px; border-radius: 8px; display: grid; place-items: center; color: var(--text-2); font-size: 22px; }
 .close-x:hover { background: #f1f5f9; }
 

@@ -346,6 +346,7 @@ export const db = {
         status: input.status ?? 'unspecified',
         cod_amount: input.cod_amount ?? 0,
         ship_date: input.ship_date ?? new Date().toISOString().slice(0, 10),
+        note: input.note ?? null,
         items,
         box_count,
         created_at: input.order_date ? `${input.order_date}T00:00:00.000Z` : new Date().toISOString(),
@@ -359,7 +360,7 @@ export const db = {
         order_no: input.order_no, customer_type: input.customer_type, customer_name: input.customer_name,
         delivery_location: input.delivery_location, shipping_method: input.shipping_method,
         zone_id: input.zone_id, status: input.status ?? 'unspecified', cod_amount: input.cod_amount ?? 0,
-        ship_date: input.ship_date,
+        ship_date: input.ship_date, note: input.note ?? null,
         ...(input.order_date ? { created_at: `${input.order_date}T00:00:00.000Z` } : {}),
       })
       .select().single();
@@ -405,6 +406,7 @@ export const db = {
               status: input.status ?? o.status,
               cod_amount: input.cod_amount ?? 0,
               ship_date: input.ship_date ?? null,
+              note: input.note ?? null,
               created_at: input.order_date ? `${input.order_date}T00:00:00.000Z` : o.created_at,
               items,
               box_count,
@@ -419,7 +421,7 @@ export const db = {
         order_no: input.order_no, customer_type: input.customer_type, customer_name: input.customer_name,
         delivery_location: input.delivery_location, shipping_method: input.shipping_method,
         zone_id: input.zone_id, status: input.status, cod_amount: input.cod_amount ?? 0,
-        ship_date: input.ship_date ?? null,
+        ship_date: input.ship_date ?? null, note: input.note ?? null,
         ...(input.order_date ? { created_at: `${input.order_date}T00:00:00.000Z` } : {}),
       })
       .eq('id', id);
@@ -442,6 +444,16 @@ export const db = {
       return;
     }
     const { error } = await supabase.from('orders').update({ ship_date }).eq('id', id);
+    if (error) throw error;
+  },
+
+  // หมายเหตุถึงคลัง — แก้ได้เองในตาราง แม้บันทึกออเดอร์ไปแล้ว ไม่ต้องเปิดฟอร์มแก้ไขทั้งใบ
+  async updateOrderNote(id: number, note: string | null): Promise<void> {
+    if (!supabase) {
+      demoOrders = demoOrders.map((o) => (o.id === id ? { ...o, note } : o));
+      return;
+    }
+    const { error } = await supabase.from('orders').update({ note }).eq('id', id);
     if (error) throw error;
   },
 

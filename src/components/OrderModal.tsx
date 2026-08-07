@@ -34,6 +34,7 @@ export default function OrderModal({
     cod_amount: order?.cod_amount ?? 0,
     ship_date: order?.ship_date ?? '',
     order_date: order?.created_at ? order.created_at.slice(0, 10) : new Date().toLocaleDateString('sv-SE'),
+    note: order?.note ?? '',
   });
   const [items, setItems] = useState<ItemRow[]>(
     order && order.items.length
@@ -76,6 +77,7 @@ export default function OrderModal({
         // วันกำหนดส่งตั้งที่หน้า "วางแผนจัดส่ง" — ส่งค่าเดิมกลับไปเพื่อไม่ให้ถูกล้างตอนแก้ออเดอร์
         ship_date: f.ship_date || undefined,
         order_date: f.order_date || undefined, // วันที่สร้างใบสั่งงาน (ดู SLA)
+        note: f.note.trim() || null, // หมายเหตุถึงคลัง — ไม่บังคับ
         items: payloadItems,
       };
       await onSave(order);
@@ -137,6 +139,16 @@ export default function OrderModal({
               <div className="readonly-note">
                 {order?.ship_date ? <><b>{order.ship_date}</b> · แก้ได้ที่หน้า “วางแผนจัดส่ง”</> : 'กำหนดที่หน้า “วางแผนจัดส่ง”'}
               </div>
+            </div>
+            <div className="field full">
+              <label>หมายเหตุถึงคลัง <span className="sub" style={{ fontWeight: 400 }}>(ไม่บังคับ · แก้ได้ทีหลังจากตารางออเดอร์ด้วย)</span></label>
+              <textarea
+                value={f.note}
+                onChange={(e) => set('note', e.target.value)}
+                placeholder="เช่น เตรียมของแยกพาเลท / ลูกค้าโทรมาขอเปลี่ยนสี…"
+                rows={2}
+                className="order-note-textarea"
+              />
             </div>
           </div>
 

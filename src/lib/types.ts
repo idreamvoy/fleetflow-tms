@@ -112,6 +112,7 @@ export interface Order {
   status: OrderStatus; // สถานะสินค้า
   cod_amount: number;
   ship_date: string | null; // กำหนดจัดส่ง
+  note?: string | null; // หมายเหตุถึงคลัง — ไม่บังคับ แก้ได้ตลอดแม้บันทึกออเดอร์ไปแล้ว
   items: OrderItem[];
   box_count: number; // sum ของ items.boxes
   created_at: string;
@@ -137,6 +138,7 @@ export interface NewOrder {
   cod_amount?: number;
   ship_date?: string;
   order_date?: string; // วันที่สร้างใบสั่งงาน (เก็บที่ created_at) — ใช้ดู SLA
+  note?: string | null; // หมายเหตุถึงคลัง
   items: NewOrderItem[];
 }
 

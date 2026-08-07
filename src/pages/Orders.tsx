@@ -41,6 +41,7 @@ export default function Orders({
   onDelete,
   onSetItemReadiness,
   onSplitOrder,
+  onSetOrderNote,
 }: {
   orders: Order[];
   onAdd: () => void;
@@ -50,6 +51,7 @@ export default function Orders({
   onDelete: (id: number) => void;
   onSetItemReadiness: (orderId: number, itemId: number, readiness: ItemReadiness) => void;
   onSplitOrder: (orderId: number) => void;
+  onSetOrderNote: (orderId: number, note: string | null) => void;
 }) {
   const [tab, setTab] = useState<ShippingMethod>('company');
   const [statusFilter, setStatusFilter] = useState<OrderStatus | 'all'>('all');
@@ -223,6 +225,17 @@ export default function Orders({
                           <span className="sla-pill" style={{ color: SLA_COLOR[sla.level], background: SLA_COLOR[sla.level] + '22' }}>
                             {sla.level === 'overdue' ? '⚠ ' : ''}{sla.label}
                           </span>
+                          <input
+                            key={o.id + '-note-' + (o.note ?? '')}
+                            className="order-note-input"
+                            defaultValue={o.note ?? ''}
+                            placeholder="📝 หมายเหตุถึงคลัง (ไม่บังคับ)"
+                            onClick={(e) => e.stopPropagation()}
+                            onBlur={(e) => {
+                              const v = e.target.value.trim();
+                              if (v !== (o.note ?? '')) onSetOrderNote(o.id, v || null);
+                            }}
+                          />
                         </td>
                       )}
                       {j === 0 && (

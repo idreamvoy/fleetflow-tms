@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import Sidebar, { type PageKey } from './components/Sidebar';
-import Topbar from './components/Topbar';
+import Topbar, { type Notification } from './components/Topbar';
 import Dashboard from './pages/Dashboard';
 import Orders from './pages/Orders';
 import Planning from './pages/Planning';
@@ -12,17 +12,18 @@ import OrderModal from './components/OrderModal';
 import PodModal from './components/PodModal';
 import ImportModal from './components/ImportModal';
 import { db, IS_SUPABASE_CONFIGURED } from './lib/supabase';
+import { slaOf } from './lib/sla';
 import type { Order, Zone, Driver, Trip, StatusMovement, StatusEvent, NewOrder, OrderStatus, PodInput, NewDriver, NewZone, TripStatus, ItemReadiness } from './lib/types';
 import { READINESS_LABEL } from './lib/types';
 
 const PAGE_META: Record<PageKey, { title: string; subtitle: string }> = {
   dashboard: { title: 'Dashboard', subtitle: 'ภาพรวมระบบ · ศูนย์ควบคุมการจัดส่ง' },
-  planning: { title: 'วางแผนจัดส่ง', subtitle: 'Planning · จัดรถและเส้นทาง' },
-  orders: { title: 'จัดการออเดอร์', subtitle: 'Orders · คีย์ออเดอร์ ดูรายละเอียด เปลี่ยนสถานะ' },
+  orders: { title: 'Orders', subtitle: 'จัดการออเดอร์ · คีย์ออเดอร์ ดูรายละเอียด เปลี่ยนสถานะ' },
+  planning: { title: 'Planning', subtitle: 'วางแผนจัดส่ง · จัดรถและเส้นทาง' },
   driver: { title: 'Driver App', subtitle: 'งานของคนขับ · เลือกวัน นำทาง และยืนยันการส่ง' },
-  tracking: { title: 'ติดตามเส้นทาง', subtitle: 'Tracking · แผนที่และสถานะรถ' },
-  reports: { title: 'รายงาน', subtitle: 'Reports · สรุปผลการดำเนินงาน' },
-  settings: { title: 'ตั้งค่า', subtitle: 'Settings · จัดการคนขับและข้อมูลหลัก' },
+  tracking: { title: 'Tracking', subtitle: 'ติดตามเส้นทาง · แผนที่และสถานะรถ' },
+  reports: { title: 'Reports', subtitle: 'รายงาน · สรุปผลการดำเนินงาน' },
+  settings: { title: 'Settings', subtitle: 'ตั้งค่า · จัดการคนขับและข้อมูลหลัก' },
 };
 
 export default function App() {
@@ -41,6 +42,8 @@ export default function App() {
   const [showImport, setShowImport] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [navOpen, setNavOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => localStorage.getItem('ff_sidebar_collapsed') === '1');
+  useEffect(() => { localStorage.setItem('ff_sidebar_collapsed', sidebarCollapsed ? '1' : '0'); }, [sidebarCollapsed]);
 
   async function loadAll() {
     setLoading(true);
@@ -103,6 +106,12 @@ export default function App() {
     await loadAll();
     setShowImport(false);
     flash(ok === newOrders.length ? `นำเข้า ${ok} ออเดอร์สำเร็จ ✓` : `นำเข้าสำเร็จ ${ok}/${newOrders.length} ออเดอร์`);
+  }
+
+  async function handleSetOrderNote(orderId: number, note: string | null) {
+    await db.updateOrderNote(orderId, note);
+    setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, note } : o)));
+    flash(note ? 'บันทึกหมายเหตุแล้ว ✓' : 'ล้างหมายเหตุแล้ว');
   }
 
   async function handleSetItemReadiness(orderId: number, itemId: number, readiness: ItemReadiness) {
@@ -253,6 +262,47 @@ export default function App() {
   const runningTrips = trips.filter((t) => t.status === 'in_progress').length;
   const navBadges = { planning: planningBadge || undefined, orders: ordersBadge || undefined };
 
+  // แจ้งเตือน — คำนวณจากข้อมูลจริง ไม่ใช่เลขคงที่ · กดแล้วพาไปหน้าที่เกี่ยวข้อง
+  const notifications = useMemo<Notification[]>(() => {
+    const list: Notification[] = [];
+    const overdue = orders.filter((o) => slaOf(o).level === 'overdue');
+    if (overdue.length) {
+      list.push({
+        id: 'sla-overdue', icon: '⚠️', level: 'danger', page: 'orders',
+        title: `เกินกำหนด SLA ${overdue.length} ออเดอร์`,
+        detail: overdue.slice(0, 3).map((o) => o.customer_name).join(', ') + (overdue.length > 3 ? ` +${overdue.length - 3}` : ''),
+      });
+    }
+    const dueSoon = orders.filter((o) => slaOf(o).level === 'due');
+    if (dueSoon.length) {
+      list.push({
+        id: 'sla-due', icon: '⏰', level: 'warn', page: 'orders',
+        title: `ใกล้ครบกำหนด ${dueSoon.length} ออเดอร์`,
+        detail: dueSoon.slice(0, 3).map((o) => o.customer_name).join(', ') + (dueSoon.length > 3 ? ` +${dueSoon.length - 3}` : ''),
+      });
+    }
+    const failed = orders.filter((o) => o.status === 'failed');
+    if (failed.length) {
+      list.push({
+        id: 'failed', icon: '📦', level: 'warn', page: 'orders',
+        title: `ค้างส่ง ${failed.length} ออเดอร์`, detail: 'รอผลิต/จัดส่งรอบใหม่',
+      });
+    }
+    if (planningBadge) {
+      list.push({
+        id: 'to-plan', icon: '🚚', level: 'info', page: 'planning',
+        title: `รอจัดรถ ${planningBadge} ออเดอร์`, detail: 'ยังไม่ถูกจัดเข้าเที่ยวรถ',
+      });
+    }
+    if (runningTrips) {
+      list.push({
+        id: 'running', icon: '🛣️', level: 'info', page: 'tracking',
+        title: `รถกำลังวิ่ง ${runningTrips} คัน`, detail: 'ดูสถานะระหว่างทาง',
+      });
+    }
+    return list;
+  }, [orders, planningBadge, runningTrips]);
+
   const filteredOrders = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return orders;
@@ -267,10 +317,17 @@ export default function App() {
   const meta = PAGE_META[page];
 
   return (
-    <div className="app">
+    <div className={`app${sidebarCollapsed ? ' sidebar-collapsed' : ''}`}>
       {navOpen && <div className="nav-scrim" onClick={() => setNavOpen(false)} />}
       <div className={navOpen ? 'sidebar-host open' : 'sidebar-host'}>
-        <Sidebar active={page} onNavigate={navigate} badges={navBadges} runningTrips={runningTrips} />
+        <Sidebar
+          active={page}
+          onNavigate={navigate}
+          badges={navBadges}
+          runningTrips={runningTrips}
+          collapsed={sidebarCollapsed}
+          onToggleCollapsed={() => setSidebarCollapsed((v) => !v)}
+        />
       </div>
 
       <div className="main">
@@ -280,6 +337,8 @@ export default function App() {
           onMenu={() => setNavOpen((v) => !v)}
           search={search}
           onSearch={setSearch}
+          notifications={notifications}
+          onOpenNotification={(n) => { if (n.page) navigate(n.page as PageKey); }}
         />
 
         <div className="content">
@@ -288,7 +347,7 @@ export default function App() {
           ) : page === 'dashboard' ? (
             <Dashboard orders={orders} zones={zones} />
           ) : page === 'orders' ? (
-            <Orders orders={filteredOrders} onAdd={openAdd} onImport={() => setShowImport(true)} onEdit={openEdit} onStatusChange={handleStatusChange} onDelete={handleDelete} onSetItemReadiness={handleSetItemReadiness} onSplitOrder={handleSplitOrder} />
+            <Orders orders={filteredOrders} onAdd={openAdd} onImport={() => setShowImport(true)} onEdit={openEdit} onStatusChange={handleStatusChange} onDelete={handleDelete} onSetItemReadiness={handleSetItemReadiness} onSplitOrder={handleSplitOrder} onSetOrderNote={handleSetOrderNote} />
           ) : page === 'planning' ? (
             <Planning orders={orders} trips={trips} drivers={drivers} zones={zones} onAssign={handleAssign} onUnassign={handleUnassign} onReorder={handleReorder} onSetTripDriver={handleSetTripDriver} onCreateTrip={handleCreateTrip} onSetTripStatus={handleSetTripStatus} onDeleteTrip={handleDeleteTrip} onSetShipDate={handleSetShipDate} onSetItemReadiness={handleSetItemReadiness} />
           ) : page === 'tracking' ? (

@@ -65,6 +65,7 @@ CREATE TABLE orders (
   ship_date         DATE,                          -- กำหนดจัดส่ง
   delivered_at      TIMESTAMPTZ,                   -- เวลาส่งจริง (POD)
   delivered_by      BIGINT REFERENCES drivers(id),-- คนขับที่ส่ง
+  note              TEXT,                          -- หมายเหตุถึงคลัง (ไม่บังคับ)
   created_at        TIMESTAMPTZ DEFAULT now()
 );
 
