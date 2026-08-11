@@ -51,9 +51,9 @@ export default function Sidebar({
         className="sidebar-collapse-btn"
         onClick={onToggleCollapsed}
         title={collapsed ? 'ขยายเมนู' : 'ย่อเมนู'}
+        aria-label={collapsed ? 'ขยายเมนู' : 'ย่อเมนู'}
       >
         <IconChevronLeft width={16} height={16} style={{ transform: collapsed ? 'rotate(180deg)' : undefined }} />
-        <span className="nav-label">ย่อเมนู</span>
       </button>
 
       <nav className="nav">

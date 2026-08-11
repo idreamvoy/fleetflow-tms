@@ -54,7 +54,8 @@ export default function Orders({
   onSetOrderNote: (orderId: number, note: string | null) => void;
 }) {
   const [tab, setTab] = useState<ShippingMethod>('company');
-  const [statusFilter, setStatusFilter] = useState<OrderStatus | 'all'>('all');
+  // เปิดหน้ามาให้เห็น "ยังไม่ระบุ" ก่อน = ออเดอร์ที่เพิ่งคีย์เข้ามา รอคลังยืนยันความพร้อม
+  const [statusFilter, setStatusFilter] = useState<OrderStatus | 'all'>('unspecified');
   const [slaOnly, setSlaOnly] = useState(false);
 
   const byTab = useMemo(() => orders.filter((o) => o.shipping_method === tab), [orders, tab]);

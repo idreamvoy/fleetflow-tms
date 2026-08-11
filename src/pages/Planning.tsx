@@ -87,7 +87,8 @@ export default function Planning({
   const [busy, setBusy] = useState<number | null>(null);
   const [busyAll, setBusyAll] = useState(false);
   const [detail, setDetail] = useState<Order | null>(null);
-  const [day, setDay] = useState<string>('all');
+  // เปิดหน้ามาให้เห็น "ยังไม่ระบุวัน" ก่อน = งานที่ยังไม่ได้กำหนดวันส่ง ต้องจัดคิวก่อนเพื่อน
+  const [day, setDay] = useState<string>('none');
   const [mapTrip, setMapTrip] = useState<Trip | null>(null);
   const [sortByDistance, setSortByDistance] = useState(false);
   const [showTripModal, setShowTripModal] = useState(false);
