@@ -153,6 +153,20 @@ export default function Planning({
     return Array.from(s).sort();
   }, [unassigned, trips]);
   const fmtDay = (d: string) => new Date(d).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' });
+  // มีวันในสัปดาห์ด้วย — คนวางแผนต้องรู้ว่าวันจันทร์/เสาร์ เพราะรอบรถต่างกัน
+  const fmtDayShort = (d: string) => new Date(d + 'T00:00:00').toLocaleDateString('th-TH', { weekday: 'short', day: 'numeric', month: 'short' });
+
+  // ---- ตัวเลือกวัน: ไม่ให้ชิปงอกไม่รู้จบ — โชว์เฉพาะวันใกล้ ๆ ที่เหลือยัดใน dropdown ----
+  const todayKey = new Date().toLocaleDateString('sv-SE');
+  const tomorrowKey = useMemo(() => { const d = new Date(); d.setDate(d.getDate() + 1); return d.toLocaleDateString('sv-SE'); }, []);
+  const countForDay = (k: string) => unassigned.filter((o) => (k === 'none' ? !o.ship_date : o.ship_date === k)).length;
+
+  const UPCOMING_CHIPS = 3; // จำนวนวันถัดไปที่โชว์เป็นชิป (ที่เหลือไปอยู่ใน dropdown)
+  const pastDays = dayOptions.filter((d) => d < todayKey);
+  const laterDays = dayOptions.filter((d) => d > tomorrowKey);
+  const chipDays = laterDays.slice(0, UPCOMING_CHIPS);
+  const moreDays = laterDays.slice(UPCOMING_CHIPS);
+  const overdueCount = pastDays.reduce((s, d) => s + countForDay(d), 0);
 
   // ---- distance from warehouse (null = หาพิกัดไม่ได้) ----
   const getDistance = (o: Order): number | null => {
@@ -172,7 +186,7 @@ export default function Planning({
   const scopeAssigned = dayTrips.reduce((s, t) => s + stopsOf(t).length, 0);
   const scopeTotal = scopeAssigned + filteredOrders.length;
   const progressPct = scopeTotal ? Math.round((scopeAssigned / scopeTotal) * 100) : 0;
-  const dayLabel = day === 'all' ? 'ทุกวัน' : fmtDay(day);
+  const dayLabel = day === 'all' ? 'ทุกวัน' : day === 'none' ? 'ยังไม่ระบุวัน' : fmtDay(day);
 
   // ---- actions ----
   // ยืนยันก่อน "ย้ายวัน" ถ้าออเดอร์มีวันเดิมที่ไม่ตรงกับวันของเที่ยว (กันเลื่อนวันพลาด)
@@ -282,6 +296,21 @@ export default function Planning({
 
   const zoneAccent = (o: Order) => (isUrgent(o) ? '#f43f5e' : o.zone_id === 1 ? '#6366f1' : '#f59e0b');
 
+  // ชิปเลือกวัน — เป็นเป้าลากวางด้วย (ลากออเดอร์มาวาง = เปลี่ยนวันส่งเป็นวันนั้น)
+  const dayChip = (k: string, label: string, extraClass = '') => (
+    <button
+      key={k}
+      className={`chip${extraClass ? ` ${extraClass}` : ''}${day === k ? ' active' : ''}${dropHint === `day:${k}` ? ' drop-on' : ''}${drag ? ' droppable' : ''}`}
+      onClick={() => setDay(k)}
+      title={k === 'none' ? 'ออเดอร์ที่ยังไม่ได้กำหนดวันส่ง · ลากมาวางเพื่อล้างวัน' : `ลากออเดอร์มาวางเพื่อกำหนดส่ง ${fmtDayShort(k)}`}
+      onDragOver={(e) => { e.preventDefault(); setDropHint(`day:${k}`); }}
+      onDragLeave={() => setDropHint((h) => (h === `day:${k}` ? null : h))}
+      onDrop={() => dropOnDay(k)}
+    >
+      {label} <span className="chip-count">{countForDay(k)}</span>
+    </button>
+  );
+
   return (
     <>
       {/* สลับมุมมอง: กระดานจัดรถ ⟷ แผนที่ออเดอร์ */}
@@ -332,30 +361,50 @@ export default function Planning({
       {/* ฟิลเตอร์วันกำหนดจัดส่ง + เรียงตามระยะ (ลากออเดอร์มาวางบนวัน = เปลี่ยนวันส่ง) */}
       <div className="filter-bar">
         <span className="filter-label">เลือกวันที่จะจัด:</span>
+
+        {/* ต้องจัดคิวก่อนเพื่อน: ยังไม่ระบุวัน + เลยกำหนด */}
+        {dayChip('none', '⚠ ยังไม่ระบุวัน', 'chip-nodate')}
+        {overdueCount > 0 && (
+          <button
+            className={`chip chip-overdue${pastDays.includes(day) ? ' active' : ''}`}
+            title={`เลยกำหนดแล้ว ${pastDays.length} วัน — คลิกเพื่อดูวันแรกสุด`}
+            onClick={() => setDay(pastDays[0])}
+          >
+            ⚠ เลยกำหนด <span className="chip-count">{overdueCount}</span>
+          </button>
+        )}
+
+        <span className="filter-sep" />
+
+        {dayChip(todayKey, 'วันนี้')}
+        {dayChip(tomorrowKey, 'พรุ่งนี้')}
+        {chipDays.map((d) => dayChip(d, fmtDayShort(d)))}
+
+        {/* วันที่เหลือทั้งหมดยัดใน dropdown — ชิปจะได้ไม่งอกไม่รู้จบ */}
+        {(moreDays.length > 0 || pastDays.length > 0) && (
+          <select
+            className={`chip day-more${moreDays.includes(day) || pastDays.includes(day) ? ' active' : ''}`}
+            value={moreDays.includes(day) || pastDays.includes(day) ? day : ''}
+            onChange={(e) => e.target.value && setDay(e.target.value)}
+            title="เลือกวันอื่น"
+          >
+            <option value="">📅 วันอื่น…</option>
+            {pastDays.length > 0 && (
+              <optgroup label="เลยกำหนด">
+                {pastDays.map((d) => <option key={d} value={d}>⚠ {fmtDayShort(d)} ({countForDay(d)})</option>)}
+              </optgroup>
+            )}
+            {moreDays.length > 0 && (
+              <optgroup label="วันถัดไป">
+                {moreDays.map((d) => <option key={d} value={d}>{fmtDayShort(d)} ({countForDay(d)})</option>)}
+              </optgroup>
+            )}
+          </select>
+        )}
+
+        <span className="filter-sep" />
         <button className={`chip${day === 'all' ? ' active' : ''}`} onClick={() => setDay('all')}>
           ทุกวัน <span className="chip-count">{unassigned.length}</span>
-        </button>
-        {dayOptions.map((d) => (
-          <button
-            key={d}
-            className={`chip${day === d ? ' active' : ''}${dropHint === `day:${d}` ? ' drop-on' : ''}${drag ? ' droppable' : ''}`}
-            onClick={() => setDay(d)}
-            onDragOver={(e) => { e.preventDefault(); setDropHint(`day:${d}`); }}
-            onDragLeave={() => setDropHint((h) => (h === `day:${d}` ? null : h))}
-            onDrop={() => dropOnDay(d)}
-          >
-            {fmtDay(d)} <span className="chip-count">{unassigned.filter((o) => o.ship_date === d).length}</span>
-          </button>
-        ))}
-        <button
-          className={`chip chip-nodate${day === 'none' ? ' active' : ''}${dropHint === 'day:none' ? ' drop-on' : ''}${drag ? ' droppable' : ''}`}
-          onClick={() => setDay('none')}
-          title="ออเดอร์ที่ยังไม่ได้กำหนดวันส่ง · ลากมาวางเพื่อล้างวัน"
-          onDragOver={(e) => { e.preventDefault(); setDropHint('day:none'); }}
-          onDragLeave={() => setDropHint((h) => (h === 'day:none' ? null : h))}
-          onDrop={() => dropOnDay('none')}
-        >
-          ⚠ ยังไม่ระบุวัน <span className="chip-count">{unassigned.filter((o) => !o.ship_date).length}</span>
         </button>
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
           <button
