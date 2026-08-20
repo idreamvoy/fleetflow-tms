@@ -148,10 +148,11 @@ export default function Planning({
   // ---- date filter: วันจากออเดอร์รอจัด + วันของเที่ยวที่มีอยู่ ----
   const dayOptions = useMemo(() => {
     const s = new Set<string>();
-    unassigned.forEach((o) => o.ship_date && s.add(o.ship_date));
+    // ทุกวันที่มีงานค้างอยู่ — รวมออเดอร์ที่จัดเข้าเที่ยวแล้ว (ไม่งั้นวันนั้นหายไปจากแถบทั้งที่ยังมีของต้องส่ง)
+    orders.forEach((o) => { if (o.ship_date && o.status !== 'delivered') s.add(o.ship_date); });
     trips.forEach((t) => t.trip_date && s.add(t.trip_date));
     return Array.from(s).sort();
-  }, [unassigned, trips]);
+  }, [orders, trips]);
   const fmtDay = (d: string) => new Date(d).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' });
   // มีวันในสัปดาห์ด้วย — คนวางแผนต้องรู้ว่าวันจันทร์/เสาร์ เพราะรอบรถต่างกัน
   const fmtDayShort = (d: string) => new Date(d + 'T00:00:00').toLocaleDateString('th-TH', { weekday: 'short', day: 'numeric', month: 'short' });
@@ -159,14 +160,26 @@ export default function Planning({
   // ---- ตัวเลือกวัน: ไม่ให้ชิปงอกไม่รู้จบ — โชว์เฉพาะวันใกล้ ๆ ที่เหลือยัดใน dropdown ----
   const todayKey = new Date().toLocaleDateString('sv-SE');
   const tomorrowKey = useMemo(() => { const d = new Date(); d.setDate(d.getDate() + 1); return d.toLocaleDateString('sv-SE'); }, []);
-  const countForDay = (k: string) => unassigned.filter((o) => (k === 'none' ? !o.ship_date : o.ship_date === k)).length;
+  // จำนวนงานของแต่ละวัน:
+  //   total   = ออเดอร์ทั้งหมดของวันนั้นที่ยังไม่ส่ง (รวมที่จัดเข้าเที่ยวแล้ว) = ปริมาณงานจริงของวัน
+  //   waiting = ที่ยังไม่ได้จัดเข้าเที่ยว = ยังต้องลงมือ
+  const dayStats = (k: string) => {
+    const match = (o: Order) => (k === 'none' ? !o.ship_date : o.ship_date === k);
+    const all = orders.filter((o) => match(o) && o.status !== 'delivered');
+    return { total: all.length, waiting: all.filter((o) => !assignedIds.has(o.id) && WAITING_STATUSES.includes(o.status)).length };
+  };
 
   const UPCOMING_CHIPS = 3; // จำนวนวันถัดไปที่โชว์เป็นชิป (ที่เหลือไปอยู่ใน dropdown)
   const pastDays = dayOptions.filter((d) => d < todayKey);
   const laterDays = dayOptions.filter((d) => d > tomorrowKey);
   const chipDays = laterDays.slice(0, UPCOMING_CHIPS);
   const moreDays = laterDays.slice(UPCOMING_CHIPS);
-  const overdueCount = pastDays.reduce((s, d) => s + countForDay(d), 0);
+  const overdueStats = pastDays.reduce((a, d) => { const s = dayStats(d); return { total: a.total + s.total, waiting: a.waiting + s.waiting }; }, { total: 0, waiting: 0 });
+  // "ทุกวัน" = ออเดอร์ที่ยังไม่ส่งทั้งหมด (ไม่ผูกกับวันใดวันหนึ่ง)
+  const allStats = {
+    total: orders.filter((o) => o.status !== 'delivered').length,
+    waiting: orders.filter((o) => o.status !== 'delivered' && !assignedIds.has(o.id) && WAITING_STATUSES.includes(o.status)).length,
+  };
 
   // ---- distance from warehouse (null = หาพิกัดไม่ได้) ----
   const getDistance = (o: Order): number | null => {
@@ -297,19 +310,28 @@ export default function Planning({
   const zoneAccent = (o: Order) => (isUrgent(o) ? '#f43f5e' : o.zone_id === 1 ? '#6366f1' : '#f59e0b');
 
   // ชิปเลือกวัน — เป็นเป้าลากวางด้วย (ลากออเดอร์มาวาง = เปลี่ยนวันส่งเป็นวันนั้น)
-  const dayChip = (k: string, label: string, extraClass = '') => (
-    <button
-      key={k}
-      className={`chip${extraClass ? ` ${extraClass}` : ''}${day === k ? ' active' : ''}${dropHint === `day:${k}` ? ' drop-on' : ''}${drag ? ' droppable' : ''}`}
-      onClick={() => setDay(k)}
-      title={k === 'none' ? 'ออเดอร์ที่ยังไม่ได้กำหนดวันส่ง · ลากมาวางเพื่อล้างวัน' : `ลากออเดอร์มาวางเพื่อกำหนดส่ง ${fmtDayShort(k)}`}
-      onDragOver={(e) => { e.preventDefault(); setDropHint(`day:${k}`); }}
-      onDragLeave={() => setDropHint((h) => (h === `day:${k}` ? null : h))}
-      onDrop={() => dropOnDay(k)}
-    >
-      {label} <span className="chip-count">{countForDay(k)}</span>
-    </button>
-  );
+  // ตัวเลข = ออเดอร์ทั้งหมดของวันนั้น · ถ้ายังมีที่ต้องจัดรถ ตัวเลขจะเป็นสีส้ม + บอกจำนวนใน tooltip
+  const dayChip = (k: string, label: string, extraClass = '') => {
+    const { total, waiting } = dayStats(k);
+    const where = k === 'none' ? 'ยังไม่กำหนดวันส่ง' : fmtDayShort(k);
+    return (
+      <button
+        key={k}
+        className={`chip${extraClass ? ` ${extraClass}` : ''}${day === k ? ' active' : ''}${dropHint === `day:${k}` ? ' drop-on' : ''}${drag ? ' droppable' : ''}`}
+        onClick={() => setDay(k)}
+        title={
+          `${where} · ${total} ออเดอร์` +
+          (waiting ? ` (รอจัดรถ ${waiting})` : total ? ' (จัดรถครบแล้ว)' : '') +
+          (k === 'none' ? ' — ลากมาวางเพื่อล้างวัน' : ` — ลากออเดอร์มาวางเพื่อกำหนดส่ง ${where}`)
+        }
+        onDragOver={(e) => { e.preventDefault(); setDropHint(`day:${k}`); }}
+        onDragLeave={() => setDropHint((h) => (h === `day:${k}` ? null : h))}
+        onDrop={() => dropOnDay(k)}
+      >
+        {label} <span className={`chip-count${waiting > 0 ? ' has-waiting' : ''}`}>{total}</span>
+      </button>
+    );
+  };
 
   return (
     <>
@@ -364,13 +386,13 @@ export default function Planning({
 
         {/* ต้องจัดคิวก่อนเพื่อน: ยังไม่ระบุวัน + เลยกำหนด */}
         {dayChip('none', '⚠ ยังไม่ระบุวัน', 'chip-nodate')}
-        {overdueCount > 0 && (
+        {overdueStats.total > 0 && (
           <button
             className={`chip chip-overdue${pastDays.includes(day) ? ' active' : ''}`}
-            title={`เลยกำหนดแล้ว ${pastDays.length} วัน — คลิกเพื่อดูวันแรกสุด`}
+            title={`เลยกำหนดแล้ว ${pastDays.length} วัน · ${overdueStats.total} ออเดอร์${overdueStats.waiting ? ` (รอจัดรถ ${overdueStats.waiting})` : ''} — คลิกเพื่อดูวันแรกสุด`}
             onClick={() => setDay(pastDays[0])}
           >
-            ⚠ เลยกำหนด <span className="chip-count">{overdueCount}</span>
+            ⚠ เลยกำหนด <span className="chip-count">{overdueStats.total}</span>
           </button>
         )}
 
@@ -391,20 +413,30 @@ export default function Planning({
             <option value="">📅 วันอื่น…</option>
             {pastDays.length > 0 && (
               <optgroup label="เลยกำหนด">
-                {pastDays.map((d) => <option key={d} value={d}>⚠ {fmtDayShort(d)} ({countForDay(d)})</option>)}
+                {pastDays.map((d) => {
+                  const s = dayStats(d);
+                  return <option key={d} value={d}>⚠ {fmtDayShort(d)} — {s.total} ออเดอร์{s.waiting ? ` (รอจัดรถ ${s.waiting})` : ''}</option>;
+                })}
               </optgroup>
             )}
             {moreDays.length > 0 && (
               <optgroup label="วันถัดไป">
-                {moreDays.map((d) => <option key={d} value={d}>{fmtDayShort(d)} ({countForDay(d)})</option>)}
+                {moreDays.map((d) => {
+                  const s = dayStats(d);
+                  return <option key={d} value={d}>{fmtDayShort(d)} — {s.total} ออเดอร์{s.waiting ? ` (รอจัดรถ ${s.waiting})` : ''}</option>;
+                })}
               </optgroup>
             )}
           </select>
         )}
 
         <span className="filter-sep" />
-        <button className={`chip${day === 'all' ? ' active' : ''}`} onClick={() => setDay('all')}>
-          ทุกวัน <span className="chip-count">{unassigned.length}</span>
+        <button
+          className={`chip${day === 'all' ? ' active' : ''}`}
+          onClick={() => setDay('all')}
+          title={`ออเดอร์ที่ยังไม่ส่งทั้งหมด ${allStats.total} รายการ${allStats.waiting ? ` (รอจัดรถ ${allStats.waiting})` : ''}`}
+        >
+          ทุกวัน <span className={`chip-count${allStats.waiting > 0 ? ' has-waiting' : ''}`}>{allStats.total}</span>
         </button>
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
           <button
