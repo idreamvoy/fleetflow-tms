@@ -5,6 +5,7 @@ import { IconRoute, IconPin, IconTruck, IconBox, IconPlus } from '../components/
 import OrderDetail from '../components/OrderDetail';
 import MapModal from '../components/MapModal';
 import TripModal from '../components/TripModal';
+import TripSheetModal from '../components/TripSheetModal';
 import OrdersMapView from '../components/OrdersMapView';
 import { IconGrid } from '../components/icons';
 
@@ -92,6 +93,7 @@ export default function Planning({
   const [mapTrip, setMapTrip] = useState<Trip | null>(null);
   const [sortByDistance, setSortByDistance] = useState(false);
   const [showTripModal, setShowTripModal] = useState(false);
+  const [showSheet, setShowSheet] = useState(false);
   const [confirmDelTrip, setConfirmDelTrip] = useState<number | null>(null);
   const [planView, setPlanView] = useState<'board' | 'map'>('board');
   // ลากวาง: จำว่ากำลังลากออเดอร์ไหน มาจากเที่ยวไหน (null=จากกองรอจัด) ลำดับที่เท่าไหร่
@@ -544,9 +546,19 @@ export default function Planning({
               <h3>รถออก · {dayLabel}</h3>
               <div className="sub">ลากออเดอร์มาวางบนรถ = จัดเข้าเที่ยว (ตั้งวันส่งให้อัตโนมัติ)</div>
             </div>
-            <button className="btn btn-primary" onClick={() => setShowTripModal(true)}>
-              <IconPlus /> สร้างเที่ยว{isRealDay ? ` (${fmtDay(day)})` : ''}
-            </button>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button
+                className="btn btn-ghost"
+                disabled={!isRealDay || dayTrips.length === 0}
+                title={isRealDay ? 'ใบเช็คลิสต์ขึ้นรถ · แยกหน้าตามคนขับ · บันทึกเป็น PDF ได้' : 'เลือกวันจัดส่งก่อน จึงจะออกใบเช็คลิสต์ได้'}
+                onClick={() => setShowSheet(true)}
+              >
+                🖨️ ใบเช็คลิสต์ / PDF
+              </button>
+              <button className="btn btn-primary" onClick={() => setShowTripModal(true)}>
+                <IconPlus /> สร้างเที่ยว{isRealDay ? ` (${fmtDay(day)})` : ''}
+              </button>
+            </div>
           </div>
           <div className="card-scroll">
             {dayTrips.length === 0 && (
@@ -710,6 +722,10 @@ export default function Planning({
             setShowTripModal(false);
           }}
         />
+      )}
+
+      {showSheet && isRealDay && (
+        <TripSheetModal dateKey={day} trips={dayTrips} orders={orders} onClose={() => setShowSheet(false)} />
       )}
     </>
   );
