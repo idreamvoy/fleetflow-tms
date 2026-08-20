@@ -471,9 +471,12 @@ table.data tbody tr:last-child td { border-bottom: none; }
 .chip.drop-on { background: var(--indigo); color: #fff; border-color: var(--indigo); }
 .chip.chip-nodate.drop-on { background: #f59e0b; border-color: #f59e0b; }
 
-/* ตัวเลขบนชิปวัน = จำนวนออเดอร์ทั้งวัน · สีส้ม = ยังมีที่ต้องจัดรถ */
-.chip-count.has-waiting { background: #f59e0b; color: #fff; }
-.chip.active .chip-count.has-waiting { background: #fff; color: #b45309; }
+/* ชิปวันเป็นสีส้มทั้งปุ่ม = ยังมีออเดอร์รอจัดรถ · ไม่มีงาน/จัดครบแล้ว = ขาวปกติ */
+.chip.needs-dispatch { background: #fffbeb; border-color: #f59e0b; color: #b45309; }
+.chip.needs-dispatch .chip-count { background: #fde68a; color: #92400e; }
+.chip.needs-dispatch:hover { background: #fef3c7; }
+.chip.needs-dispatch.active { background: #f59e0b; border-color: #f59e0b; color: #fff; }
+.chip.needs-dispatch.active .chip-count { background: #ffffff33; color: #fff; }
 
 /* แถบเลือกวัน — คั่นกลุ่ม / วันเลยกำหนด / dropdown วันอื่น */
 .filter-sep { width: 1px; height: 20px; background: var(--border); margin: 0 2px; flex-shrink: 0; }
