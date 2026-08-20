@@ -103,8 +103,10 @@ export default function Planning({
   // ---- ตัวกรองวัน: ใช้กับทั้งออเดอร์รอจัด + จุดส่งในเที่ยว ----
   // 'none' = ยังไม่ระบุวัน (ต้องหาให้เจอง่าย ๆ เพราะตอนนี้กำหนดวันกันที่หน้านี้)
   const dayMatch = (o: Order) => day === 'all' || (day === 'none' ? !o.ship_date : o.ship_date === day);
-  const allStopsOf = (t: Trip) => t.order_ids.map((id) => orders.find((o) => o.id === id)).filter(Boolean) as Order[];
-  const dayStopsOf = (t: Trip) => allStopsOf(t).filter(dayMatch); // จุดของวันที่เลือก (รวมส่งแล้ว)
+  // จุดส่งของเที่ยว = ทุกจุดที่อยู่บนรถคันนั้น — ไม่กรองด้วยวันของออเดอร์ซ้ำอีก
+  // (เที่ยวรถถูกกรองด้วย trip_date อยู่แล้ว ถ้ากรองซ้ำ ออเดอร์ที่วันส่งไม่ตรงกับวันรถจะหายไปทั้งสองฝั่ง)
+  const dayStopsOf = (t: Trip) => t.order_ids.map((id) => orders.find((o) => o.id === id)).filter(Boolean) as Order[];
+  const allStopsOf = dayStopsOf;
   const stopsOf = (t: Trip) => dayStopsOf(t).filter((o) => o.status !== 'delivered'); // ที่ยังไม่ส่ง
   const deliveredOf = (t: Trip) => dayStopsOf(t).filter((o) => o.status === 'delivered').length;
   const usedBoxes = (t: Trip) => stopsOf(t).reduce((s, o) => s + o.box_count, 0);
@@ -169,7 +171,10 @@ export default function Planning({
   const dayStats = (k: string) => {
     const match = (o: Order) => (k === 'none' ? !o.ship_date : o.ship_date === k);
     const waiting = unassigned.filter(match).length;
-    const onTrips = orders.filter((o) => match(o) && assignedIds.has(o.id) && o.status !== 'delivered').length;
+    // นับของบนรถตาม "วันที่รถออก" (trip_date) ให้ตรงกับที่แสดงในแผงเที่ยวรถ
+    const onTrips = trips
+      .filter((t) => t.trip_date === k)
+      .reduce((s, t) => s + stopsOf(t).length, 0);
     return { total: waiting + onTrips, waiting };
   };
 
@@ -181,7 +186,7 @@ export default function Planning({
   const overdueStats = pastDays.reduce((a, d) => { const s = dayStats(d); return { total: a.total + s.total, waiting: a.waiting + s.waiting }; }, { total: 0, waiting: 0 });
   // "ทุกวัน" = งานวางแผนทั้งหมดทุกวันรวมกัน (นิยามเดียวกับ dayStats)
   const allStats = {
-    total: unassigned.length + orders.filter((o) => assignedIds.has(o.id) && o.status !== 'delivered').length,
+    total: unassigned.length + trips.reduce((s, t) => s + stopsOf(t).length, 0),
     waiting: unassigned.length,
   };
 

@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import type { Order, Trip } from '../lib/types';
 import { readinessOf, READINESS_LABEL } from '../lib/types';
 
@@ -44,8 +45,9 @@ export default function TripSheetModal({
   const totalCod = sheets.reduce((s, x) => s + x.cod, 0);
   const printedAt = new Date().toLocaleString('th-TH', { day: '2-digit', month: 'short', year: '2-digit', hour: '2-digit', minute: '2-digit' });
 
-  return (
-    <div className="overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
+  // เรนเดอร์นอก #root — เพราะ .app มี height:100vh + overflow:hidden ถ้าอยู่ข้างในจะโดนตัดตอนสั่งพิมพ์ (ได้หน้าว่าง)
+  return createPortal(
+    <div className="overlay sheet-portal" onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div className="modal sheet-modal">
         {/* แถบเครื่องมือ — ไม่ถูกพิมพ์ลงกระดาษ */}
         <div className="modal-head no-print">
@@ -159,6 +161,7 @@ export default function TripSheetModal({
           ))}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
