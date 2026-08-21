@@ -842,7 +842,9 @@ table.data tbody tr:last-child td { border-bottom: none; }
 
 .sheet { border: 1px solid var(--border); border-radius: 12px; padding: 18px 20px; background: #fff; }
 .sheet-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; border-bottom: 2px solid var(--navy); padding-bottom: 10px; }
-.sheet-title { font-size: 15px; font-weight: 700; }
+.sheet-title { font-size: 15px; font-weight: 800; letter-spacing: 0.06em; }
+.sheet-brand { font-weight: 600; letter-spacing: 0; color: var(--text-2); }
+.th-sub { font-weight: 500; color: #64748b; font-size: 9px; }
 .sheet-date { font-size: 13px; color: var(--text-2); margin-top: 2px; }
 .sheet-driver { text-align: right; }
 .sheet-driver-name { font-size: 17px; font-weight: 700; }
@@ -859,9 +861,14 @@ table.data tbody tr:last-child td { border-bottom: none; }
 .s-addr { color: #475569; margin-top: 1px; line-height: 1.5; }
 .s-meta { color: #94a3b8; font-size: 11px; margin-top: 3px; }
 .s-note { color: #b45309; }
-.s-item { display: flex; flex-direction: column; margin-bottom: 4px; }
-.s-item:last-child { margin-bottom: 0; }
-.s-qty { color: #64748b; font-size: 11px; }
+.sheet-table td.top { vertical-align: top; }
+/* เส้นคั่นให้เห็นว่าจบจุดส่งไหน (ในจุดเดียวกันเส้นบาง ระหว่างจุดเส้นหนา) */
+.sheet-table tr.stop-end td { border-bottom: 1.5px solid #94a3b8; }
+.s-col { display: inline-block; background: #f1f5f9; color: #475569; font-size: 10px; padding: 0 5px; border-radius: 4px; margin-right: 5px; }
+.s-name { font-weight: 600; }
+.s-warn { color: #b45309; font-weight: 600; }
+.s-inote { color: #b45309; font-size: 11px; margin-top: 2px; }
+.sheet-table tr.s-total td { background: #f8fafc; font-weight: 700; }
 /* ช่องติ๊กเช็คของจริงหน้าคลัง */
 .s-box { display: inline-block; width: 15px; height: 15px; border: 1.5px solid #475569; border-radius: 3px; }
 

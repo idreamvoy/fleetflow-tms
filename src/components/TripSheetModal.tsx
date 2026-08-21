@@ -34,7 +34,6 @@ export default function TripSheetModal({
           trip: t,
           stops,
           boxes: stops.reduce((s, o) => s + o.box_count, 0),
-          cod: stops.reduce((s, o) => s + o.cod_amount, 0),
         };
       }),
     [trips, orders]
@@ -42,7 +41,6 @@ export default function TripSheetModal({
 
   const totalStops = sheets.reduce((s, x) => s + x.stops.length, 0);
   const totalBoxes = sheets.reduce((s, x) => s + x.boxes, 0);
-  const totalCod = sheets.reduce((s, x) => s + x.cod, 0);
   const printedAt = new Date().toLocaleString('th-TH', { day: '2-digit', month: 'short', year: '2-digit', hour: '2-digit', minute: '2-digit' });
 
   // เรนเดอร์นอก #root — เพราะ .app มี height:100vh + overflow:hidden ถ้าอยู่ข้างในจะโดนตัดตอนสั่งพิมพ์ (ได้หน้าว่าง)
@@ -52,10 +50,9 @@ export default function TripSheetModal({
         {/* แถบเครื่องมือ — ไม่ถูกพิมพ์ลงกระดาษ */}
         <div className="modal-head no-print">
           <div>
-            <h3>ใบเช็คลิสต์ขึ้นรถ · {fmtFull(dateKey)}</h3>
+            <h3>Loading Checklist · {fmtFull(dateKey)}</h3>
             <div className="sub">
               {sheets.length} คนขับ · {totalStops} จุดส่ง · {totalBoxes} กล่อง
-              {totalCod > 0 ? ` · COD ฿${totalCod.toLocaleString()}` : ''}
             </div>
           </div>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -72,12 +69,12 @@ export default function TripSheetModal({
         <div className="sheet-scroll">
           {sheets.length === 0 && <div className="loading">วันนี้ยังไม่มีเที่ยวรถ</div>}
 
-          {sheets.map(({ trip, stops, boxes, cod }) => (
+          {sheets.map(({ trip, stops, boxes }) => (
             <section className="sheet" key={trip.id}>
               {/* หัวกระดาษ */}
               <header className="sheet-head">
                 <div>
-                  <div className="sheet-title">ใบเช็คลิสต์ขึ้นรถ · FleetFlow TMS</div>
+                  <div className="sheet-title">LOADING CHECKLIST <span className="sheet-brand">· FleetFlow TMS</span></div>
                   <div className="sheet-date">{fmtFull(dateKey)}</div>
                 </div>
                 <div className="sheet-driver">
@@ -89,54 +86,65 @@ export default function TripSheetModal({
               {/* สรุปยอดของเที่ยวนี้ */}
               <div className="sheet-summary">
                 <span><b>{stops.length}</b> จุดส่ง</span>
+                <span><b>{stops.reduce((s, o) => s + o.items.length, 0)}</b> รายการสินค้า</span>
+                <span><b>{stops.reduce((s, o) => s + o.items.reduce((a, it) => a + it.qty, 0), 0).toLocaleString()}</b> ชิ้น</span>
                 <span><b>{boxes}</b> กล่อง</span>
                 <span>ความจุ <b>{boxes}/{trip.capacity_boxes}</b></span>
-                <span>COD <b>฿{cod.toLocaleString()}</b></span>
               </div>
 
-              {/* ตารางของที่ต้องขึ้นรถ */}
+              {/* ตารางของที่ต้องขึ้นรถ — 1 บรรทัด = 1 รายการสินค้า ติ๊กทีละรายการได้ */}
               <table className="sheet-table">
                 <thead>
                   <tr>
-                    <th style={{ width: 26 }}>#</th>
-                    <th>ลูกค้า / ที่อยู่</th>
-                    <th style={{ width: 210 }}>รายการสินค้า</th>
-                    <th style={{ width: 42 }}>กล่อง</th>
-                    <th style={{ width: 62 }}>COD</th>
-                    <th style={{ width: 34 }}>เช็ค</th>
+                    <th style={{ width: 24 }}>#</th>
+                    <th style={{ width: '32%' }}>ลูกค้า / ที่อยู่</th>
+                    <th>รายการสินค้า</th>
+                    <th style={{ width: 52 }}>จำนวน<div className="th-sub">(ชิ้น)</div></th>
+                    <th style={{ width: 52 }}>ต่อกล่อง<div className="th-sub">(ชิ้น)</div></th>
+                    <th style={{ width: 46 }}>กล่อง</th>
+                    <th style={{ width: 30 }}>✓</th>
                   </tr>
                 </thead>
                 <tbody>
                   {stops.length === 0 ? (
-                    <tr><td colSpan={6} style={{ textAlign: 'center', color: '#64748b', padding: 14 }}>ยังไม่มีจุดส่งในเที่ยวนี้</td></tr>
+                    <tr><td colSpan={7} style={{ textAlign: 'center', color: '#64748b', padding: 14 }}>ยังไม่มีจุดส่งในเที่ยวนี้</td></tr>
                   ) : (
-                    stops.map((o, i) => (
-                      <tr key={o.id}>
-                        <td className="c">{i + 1}</td>
-                        <td>
-                          <div className="s-cust">{o.customer_name}</div>
-                          <div className="s-addr">{o.delivery_location || '—'}</div>
-                          <div className="s-meta">
-                            {o.order_no}
-                            {o.note ? <span className="s-note"> · 📝 {o.note}</span> : null}
-                          </div>
-                        </td>
-                        <td>
-                          {o.items.map((it) => (
-                            <div className="s-item" key={it.id}>
-                              <span>{it.product_name}</span>
-                              <span className="s-qty">
-                                {it.qty} ชิ้น · {it.boxes} กล่อง
-                                {readinessOf(it) !== 'ready' ? ` · ⚠ ${READINESS_LABEL[readinessOf(it)]}` : ''}
-                              </span>
-                            </div>
-                          ))}
-                        </td>
-                        <td className="c b">{o.box_count}</td>
-                        <td className="c">{o.cod_amount ? `฿${o.cod_amount.toLocaleString()}` : '—'}</td>
-                        <td className="c"><span className="s-box" /></td>
-                      </tr>
-                    ))
+                    stops.map((o, i) =>
+                      o.items.map((it, j) => (
+                        <tr key={it.id} className={j === o.items.length - 1 ? 'stop-end' : ''}>
+                          {j === 0 && <td className="c top" rowSpan={o.items.length}>{i + 1}</td>}
+                          {j === 0 && (
+                            <td className="top" rowSpan={o.items.length}>
+                              <div className="s-cust">{o.customer_name}</div>
+                              <div className="s-addr">{o.delivery_location || '—'}</div>
+                              <div className="s-meta">
+                                {o.order_no} · รวม {o.box_count} กล่อง
+                                {o.note ? <span className="s-note"> · 📝 {o.note}</span> : null}
+                              </div>
+                            </td>
+                          )}
+                          <td>
+                            {it.collection ? <span className="s-col">{it.collection}</span> : null}
+                            <span className="s-name">{it.product_name}</span>
+                            {readinessOf(it) !== 'ready' && <span className="s-warn"> ⚠ {READINESS_LABEL[readinessOf(it)]}</span>}
+                            {it.note ? <div className="s-inote">* {it.note}</div> : null}
+                          </td>
+                          <td className="c b">{it.qty.toLocaleString()}</td>
+                          <td className="c">{it.pieces_per_box}</td>
+                          <td className="c b">{it.boxes}</td>
+                          <td className="c"><span className="s-box" /></td>
+                        </tr>
+                      ))
+                    )
+                  )}
+                  {stops.length > 0 && (
+                    <tr className="s-total">
+                      <td colSpan={3}>รวมทั้งคัน · {stops.length} จุดส่ง · {stops.reduce((s, o) => s + o.items.length, 0)} รายการ</td>
+                      <td className="c b">{stops.reduce((s, o) => s + o.items.reduce((a, it) => a + it.qty, 0), 0).toLocaleString()}</td>
+                      <td />
+                      <td className="c b">{boxes}</td>
+                      <td />
+                    </tr>
                   )}
                 </tbody>
               </table>

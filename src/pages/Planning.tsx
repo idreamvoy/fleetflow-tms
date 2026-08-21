@@ -557,10 +557,10 @@ export default function Planning({
               <button
                 className="btn btn-ghost"
                 disabled={!isRealDay || dayTrips.length === 0}
-                title={isRealDay ? 'ใบเช็คลิสต์ขึ้นรถ · แยกหน้าตามคนขับ · บันทึกเป็น PDF ได้' : 'เลือกวันจัดส่งก่อน จึงจะออกใบเช็คลิสต์ได้'}
+                title={isRealDay ? 'Loading Checklist · แยกหน้าตามคนขับ · บันทึกเป็น PDF ได้' : 'เลือกวันจัดส่งก่อน จึงจะออกใบเช็คลิสต์ได้'}
                 onClick={() => setShowSheet(true)}
               >
-                🖨️ ใบเช็คลิสต์ / PDF
+                🖨️ Loading Checklist
               </button>
               <button className="btn btn-primary" onClick={() => setShowTripModal(true)}>
                 <IconPlus /> สร้างเที่ยว{isRealDay ? ` (${fmtDay(day)})` : ''}
