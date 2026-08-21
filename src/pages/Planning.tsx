@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useReducer, useState } from 'react';
 import type { Order, Trip, Driver, Zone, OrderStatus, TripStatus, ItemReadiness } from '../lib/types';
 import { TRIP_STATUS_LABEL, orderReadiness } from '../lib/types';
-import { IconRoute, IconPin, IconTruck, IconBox, IconPlus } from '../components/icons';
+import { IconRoute, IconPin, IconTruck, IconBox, IconPlus, IconAlert, IconCalendar } from '../components/icons';
 import OrderDetail from '../components/OrderDetail';
 import MapModal from '../components/MapModal';
 import TripModal from '../components/TripModal';
@@ -317,15 +317,16 @@ export default function Planning({
 
   const zoneAccent = (o: Order) => (isUrgent(o) ? '#f43f5e' : o.zone_id === 1 ? '#6366f1' : '#f59e0b');
 
-  // ชิปเลือกวัน — เป็นเป้าลากวางด้วย (ลากออเดอร์มาวาง = เปลี่ยนวันส่งเป็นวันนั้น)
-  // ตัวเลข = ออเดอร์ทั้งหมดของวันนั้น · ถ้ายังมีที่ต้องจัดรถ ตัวเลขจะเป็นสีส้ม + บอกจำนวนใน tooltip
-  const dayChip = (k: string, label: string, extraClass = '') => {
+  // ปุ่มเลือกวันใน segmented control — เป็นเป้าลากวางด้วย (ลากออเดอร์มาวาง = เปลี่ยนวันส่งเป็นวันนั้น)
+  //   ปุ่มที่เลือก = พื้นขาวยกนูน (ไม่ใช้สี) · สีสงวนไว้บอกความเร่งด่วนที่ไอคอน+ตัวเลขเท่านั้น
+  const daySeg = (k: string, label: string, tone: 'warn' | 'plain' = 'plain') => {
     const { total, waiting } = dayStats(k);
     const where = k === 'none' ? 'ยังไม่กำหนดวันส่ง' : fmtDayShort(k);
+    const urgent = tone === 'warn' && waiting > 0;
     return (
       <button
         key={k}
-        className={`chip${extraClass ? ` ${extraClass}` : ''}${waiting > 0 ? ' needs-dispatch' : ''}${day === k ? ' active' : ''}${dropHint === `day:${k}` ? ' drop-on' : ''}${drag ? ' droppable' : ''}`}
+        className={`seg-day${urgent ? ' urgent' : ''}${day === k ? ' active' : ''}${dropHint === `day:${k}` ? ' drop-on' : ''}${drag ? ' droppable' : ''}`}
         onClick={() => setDay(k)}
         title={
           `${where} · ${total} ออเดอร์` +
@@ -336,7 +337,9 @@ export default function Planning({
         onDragLeave={() => setDropHint((h) => (h === `day:${k}` ? null : h))}
         onDrop={() => dropOnDay(k)}
       >
-        {label} <span className="chip-count">{total}</span>
+        {urgent && <IconAlert className="seg-ico" width={14} height={14} />}
+        <span>{label}</span>
+        <span className="seg-count">{total}</span>
       </button>
     );
   };
@@ -388,63 +391,65 @@ export default function Planning({
         </div>
       </div>
 
-      {/* ฟิลเตอร์วันกำหนดจัดส่ง + เรียงตามระยะ (ลากออเดอร์มาวางบนวัน = เปลี่ยนวันส่ง) */}
+      {/* เลือกวันจัดส่ง — segmented control (มุมมองหลัก) + ปุ่มปฏิทิน (เจาะจงวัน) */}
       <div className="filter-bar">
-        <span className="filter-label">เลือกวันที่จะจัด:</span>
+        <span className="filter-label">วันจัดส่ง</span>
 
-        {/* ต้องจัดคิวก่อนเพื่อน: ยังไม่ระบุวัน + เลยกำหนด */}
-        {dayChip('none', '⚠ ยังไม่ระบุวัน', 'chip-nodate')}
-        {overdueStats.total > 0 && (
+        <div className="seg-days" role="group" aria-label="เลือกวันที่จะจัด">
+          {daySeg('none', 'ยังไม่ระบุวัน', 'warn')}
+          {overdueStats.total > 0 && (
+            <button
+              className={`seg-day overdue${pastDays.includes(day) ? ' active' : ''}`}
+              title={`เลยกำหนดแล้ว ${pastDays.length} วัน · ${overdueStats.total} ออเดอร์${overdueStats.waiting ? ` (รอจัดรถ ${overdueStats.waiting})` : ''} — คลิกเพื่อดูวันแรกสุด`}
+              onClick={() => setDay(pastDays[0])}
+            >
+              <IconAlert className="seg-ico" width={14} height={14} />
+              <span>เลยกำหนด</span>
+              <span className="seg-count">{overdueStats.total}</span>
+            </button>
+          )}
+          {daySeg(todayKey, 'วันนี้')}
+          {daySeg(tomorrowKey, 'พรุ่งนี้')}
           <button
-            className={`chip chip-overdue${pastDays.includes(day) ? ' active' : ''}`}
-            title={`เลยกำหนดแล้ว ${pastDays.length} วัน · ${overdueStats.total} ออเดอร์${overdueStats.waiting ? ` (รอจัดรถ ${overdueStats.waiting})` : ''} — คลิกเพื่อดูวันแรกสุด`}
-            onClick={() => setDay(pastDays[0])}
+            className={`seg-day${day === 'all' ? ' active' : ''}`}
+            onClick={() => setDay('all')}
+            title={`งานวางแผนทั้งหมด ${allStats.total} รายการ${allStats.waiting ? ` (รอจัดรถ ${allStats.waiting})` : ' (จัดรถครบแล้ว)'}`}
           >
-            ⚠ เลยกำหนด <span className="chip-count">{overdueStats.total}</span>
+            <span>ทุกวัน</span>
+            <span className="seg-count">{allStats.total}</span>
           </button>
-        )}
+        </div>
 
-        <span className="filter-sep" />
-
-        {dayChip(todayKey, 'วันนี้')}
-        {dayChip(tomorrowKey, 'พรุ่งนี้')}
-
-        {/* วันที่เหลือทั้งหมดยัดใน dropdown — ชิปจะได้ไม่งอกไม่รู้จบ */}
+        {/* เจาะจงวันอื่น — แยกออกจาก segmented เพราะเป็นคนละหน้าที่ */}
         {(moreDays.length > 0 || pastDays.length > 0) && (
-          <select
-            className={`chip day-more${moreDays.includes(day) || pastDays.includes(day) ? ' active' : ''}`}
-            value={moreDays.includes(day) || pastDays.includes(day) ? day : ''}
-            onChange={(e) => e.target.value && setDay(e.target.value)}
-            title="เลือกวันอื่น"
-          >
-            <option value="">📅 วันอื่น…</option>
-            {pastDays.length > 0 && (
-              <optgroup label="เลยกำหนด">
-                {pastDays.map((d) => {
-                  const s = dayStats(d);
-                  return <option key={d} value={d}>⚠ {fmtDayShort(d)} — {s.total} ออเดอร์{s.waiting ? ` (รอจัดรถ ${s.waiting})` : ''}</option>;
-                })}
-              </optgroup>
-            )}
-            {moreDays.length > 0 && (
-              <optgroup label="วันถัดไป">
-                {moreDays.map((d) => {
-                  const s = dayStats(d);
-                  return <option key={d} value={d}>{fmtDayShort(d)} — {s.total} ออเดอร์{s.waiting ? ` (รอจัดรถ ${s.waiting})` : ''}</option>;
-                })}
-              </optgroup>
-            )}
-          </select>
+          <div className={`day-picker${moreDays.includes(day) || pastDays.includes(day) ? ' active' : ''}`}>
+            <IconCalendar className="picker-ico" width={15} height={15} />
+            <select
+              className="day-more"
+              value={moreDays.includes(day) || pastDays.includes(day) ? day : ''}
+              onChange={(e) => e.target.value && setDay(e.target.value)}
+              title="เลือกวันอื่น"
+            >
+              <option value="">วันอื่น</option>
+              {pastDays.length > 0 && (
+                <optgroup label="เลยกำหนด">
+                  {pastDays.map((d) => {
+                    const s = dayStats(d);
+                    return <option key={d} value={d}>{fmtDayShort(d)} — {s.total} ออเดอร์{s.waiting ? ` (รอจัดรถ ${s.waiting})` : ''}</option>;
+                  })}
+                </optgroup>
+              )}
+              {moreDays.length > 0 && (
+                <optgroup label="วันถัดไป">
+                  {moreDays.map((d) => {
+                    const s = dayStats(d);
+                    return <option key={d} value={d}>{fmtDayShort(d)} — {s.total} ออเดอร์{s.waiting ? ` (รอจัดรถ ${s.waiting})` : ''}</option>;
+                  })}
+                </optgroup>
+              )}
+            </select>
+          </div>
         )}
-
-        <span className="filter-sep" />
-        <button
-          className={`chip${allStats.waiting > 0 ? ' needs-dispatch' : ''}${day === 'all' ? ' active' : ''}`}
-          onClick={() => setDay('all')}
-          title={`งานวางแผนทั้งหมด ${allStats.total} รายการ${allStats.waiting ? ` (รอจัดรถ ${allStats.waiting})` : ' (จัดรถครบแล้ว)'}`}
-        >
-          ทุกวัน <span className="chip-count">{allStats.total}</span>
-        </button>
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
           <button
             className={`btn btn-ghost xs${sortByDistance ? ' active' : ''}`}

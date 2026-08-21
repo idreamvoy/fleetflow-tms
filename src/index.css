@@ -469,26 +469,56 @@ table.data tbody tr:last-child td { border-bottom: none; }
 .card-scroll.drop-on { background: #fff1f2; outline: 2px dashed #fecdd3; outline-offset: -6px; border-radius: 12px; }
 .chip.droppable { border-style: dashed; }
 .chip.drop-on { background: var(--indigo); color: #fff; border-color: var(--indigo); }
-.chip.chip-nodate.drop-on { background: #f59e0b; border-color: #f59e0b; }
 
-/* ชิปวันเป็นสีส้มทั้งปุ่ม = ยังมีออเดอร์รอจัดรถ · ไม่มีงาน/จัดครบแล้ว = ขาวปกติ */
-.chip.needs-dispatch { background: #fffbeb; border-color: #f59e0b; color: #b45309; }
-.chip.needs-dispatch .chip-count { background: #fde68a; color: #92400e; }
-.chip.needs-dispatch:hover { background: #fef3c7; }
-.chip.needs-dispatch.active { background: #f59e0b; border-color: #f59e0b; color: #fff; }
-.chip.needs-dispatch.active .chip-count { background: #ffffff33; color: #fff; }
+/* ============================================================
+   แถบเลือกวันจัดส่ง — segmented control
+   หลักการ: "ปุ่มที่เลือก" ใช้พื้นขาวยกนูน (ไม่ใช้สี)
+            สีสงวนไว้บอก "ความเร่งด่วน" ที่ไอคอน+ตัวเลขเท่านั้น
+   ============================================================ */
+.filter-label { font-size: 11px; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; color: var(--text-3); }
+.seg-days {
+  display: inline-flex; flex-wrap: wrap; gap: 2px; padding: 3px;
+  background: #f1f5f9; border: 1px solid var(--border); border-radius: 11px;
+}
+.seg-day {
+  display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
+  padding: 6px 11px; border-radius: 8px; border: 1px solid transparent;
+  font-size: 13px; font-weight: 500; color: var(--text-2); background: transparent;
+  transition: background 0.12s, color 0.12s;
+}
+.seg-day:hover { background: rgba(255, 255, 255, 0.7); color: var(--text); }
+.seg-day.active { background: #fff; color: var(--text); border-color: var(--border); box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08); }
+.seg-count { font-size: 11px; font-weight: 700; padding: 1px 6px; border-radius: 999px; background: #e2e8f0; color: var(--text-2); }
+.seg-day.active .seg-count { background: #f1f5f9; }
+.seg-ico { flex-shrink: 0; }
+/* ความเร่งด่วน — แต้มสีเฉพาะไอคอน/ตัวเลข ไม่ทาทั้งปุ่ม */
+.seg-day.urgent .seg-ico { color: #f59e0b; }
+.seg-day.urgent .seg-count { background: #fef3c7; color: #b45309; }
+.seg-day.overdue .seg-ico { color: #f43f5e; }
+.seg-day.overdue .seg-count { background: #ffe4e6; color: #be123c; }
+/* ลากวาง */
+.seg-day.droppable { border-style: dashed; border-color: #cbd5e1; }
+.seg-day.drop-on { background: var(--indigo); color: #fff; border-color: var(--indigo); box-shadow: none; }
+.seg-day.drop-on .seg-ico { color: #fff; }
+.seg-day.drop-on .seg-count { background: rgba(255, 255, 255, 0.22); color: #fff; }
 
-/* แถบเลือกวัน — คั่นกลุ่ม / วันเลยกำหนด / dropdown วันอื่น */
-.filter-sep { width: 1px; height: 20px; background: var(--border); margin: 0 2px; flex-shrink: 0; }
-.chip-overdue { border-color: #fecdd3; color: #e11d48; }
-.chip-overdue.active { background: #e11d48; border-color: #e11d48; color: #fff; }
-.chip-overdue.active .chip-count { background: #ffffff33; color: #fff; }
-.chip.day-more { padding-right: 8px; cursor: pointer; }
-.chip.day-more.active { background: var(--navy); border-color: var(--navy); color: #fff; }
-
-.chip-nodate { border-color: #fbbf24; color: #b45309; }
-.chip-nodate.active { background: #f59e0b; border-color: #f59e0b; color: #fff; }
-.chip-nodate.active .chip-count { background: #ffffff33; color: #fff; }
+/* ปุ่มปฏิทิน "วันอื่น" — แยกจาก segmented เพราะคนละหน้าที่ */
+.day-picker { position: relative; display: inline-flex; align-items: center; }
+.day-picker .picker-ico { position: absolute; left: 10px; color: var(--text-3); pointer-events: none; }
+.day-picker::after {
+  content: ''; position: absolute; right: 12px; width: 6px; height: 6px;
+  border-right: 1.5px solid var(--text-3); border-bottom: 1.5px solid var(--text-3);
+  transform: translateY(-2px) rotate(45deg); pointer-events: none;
+}
+.day-more {
+  appearance: none; -webkit-appearance: none;
+  padding: 7px 28px 7px 31px; border: 1px solid var(--border); border-radius: 10px;
+  background: #fff; font-size: 13px; font-weight: 500; color: var(--text-2); cursor: pointer;
+}
+.day-more:hover { border-color: var(--indigo); color: var(--text); }
+.day-picker.active .day-more { background: var(--navy); border-color: var(--navy); color: #fff; }
+.day-picker.active .picker-ico { color: #fff; }
+.day-picker.active::after { border-color: #fff; }
 
 /* Dashboard — แท็บแผนที่ออเดอร์ */
 .map-box { height: 540px; width: 100%; border-radius: 0 0 14px 14px; overflow: hidden; margin-top: 12px; }
