@@ -178,11 +178,10 @@ export default function Planning({
     return { total: waiting + onTrips, waiting };
   };
 
-  const UPCOMING_CHIPS = 3; // จำนวนวันถัดไปที่โชว์เป็นชิป (ที่เหลือไปอยู่ใน dropdown)
+  // ชิปมีแค่ 5 ปุ่มคงที่: ยังไม่ระบุวัน · เลยกำหนด · วันนี้ · พรุ่งนี้ · ทุกวัน
+  // วันเจาะจงอื่น ๆ (อดีต/อนาคต) ไปอยู่ใน dropdown "วันอื่น…" ทั้งหมด
   const pastDays = dayOptions.filter((d) => d < todayKey);
-  const laterDays = dayOptions.filter((d) => d > tomorrowKey);
-  const chipDays = laterDays.slice(0, UPCOMING_CHIPS);
-  const moreDays = laterDays.slice(UPCOMING_CHIPS);
+  const moreDays = dayOptions.filter((d) => d > tomorrowKey);
   const overdueStats = pastDays.reduce((a, d) => { const s = dayStats(d); return { total: a.total + s.total, waiting: a.waiting + s.waiting }; }, { total: 0, waiting: 0 });
   // "ทุกวัน" = งานวางแผนทั้งหมดทุกวันรวมกัน (นิยามเดียวกับ dayStats)
   const allStats = {
@@ -409,7 +408,6 @@ export default function Planning({
 
         {dayChip(todayKey, 'วันนี้')}
         {dayChip(tomorrowKey, 'พรุ่งนี้')}
-        {chipDays.map((d) => dayChip(d, fmtDayShort(d)))}
 
         {/* วันที่เหลือทั้งหมดยัดใน dropdown — ชิปจะได้ไม่งอกไม่รู้จบ */}
         {(moreDays.length > 0 || pastDays.length > 0) && (
@@ -527,16 +525,20 @@ export default function Planning({
                         )}
                       </div>
                     </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignSelf: 'center' }}>
-                      <button className="btn btn-primary" style={{ whiteSpace: 'nowrap' }} disabled={busy === o.id || !selTrip} onClick={() => selTrip && assign(o.id, selTrip.id)}>
-                        {busy === o.id ? '…' : `จัดเข้า ${selTrip ? tripLabel(selTrip) : 'เที่ยว'}`}
-                      </button>
-                      {rec && rec.id !== selTrip?.id && (
-                        <button className="btn btn-ghost mini" disabled={busy === o.id} onClick={() => assign(o.id, rec.id)}>
-                          จัดตามแนะนำ
+                    {/* จัดเข้าเที่ยว = ลากการ์ดไปวางบนรถ/บนวัน · เหลือปุ่มลัด "จัดตามแนะนำ" อย่างเดียว */}
+                    {rec && (
+                      <div style={{ alignSelf: 'center' }}>
+                        <button
+                          className="btn btn-primary"
+                          style={{ whiteSpace: 'nowrap' }}
+                          disabled={busy === o.id}
+                          title={`จัดเข้าเที่ยวของ ${tripLabel(rec)} (รถที่ระบบแนะนำ)`}
+                          onClick={() => assign(o.id, rec.id)}
+                        >
+                          {busy === o.id ? '…' : `จัดตามแนะนำ · ${tripLabel(rec)}`}
                         </button>
-                      )}
-                    </div>
+                      </div>
+                    )}
                   </div>
                 );
               })
